@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    // File Layout
+    "outDir": "./dist",
+    "rootDir": ".",
+
+    // Environment Settings
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "types": ["node"],
+
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Recommended Options
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
