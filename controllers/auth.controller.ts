@@ -20,7 +20,7 @@ export const register = async (req: Request, res: Response) => {
     const user = await prisma.user.create({
       data: {
         email,
-        password: hashedPassword,
+        password_hash: hashedPassword, // <--- INI YANG DIGANTI
         role: role || 'STUDENT',
       },
       select: { id: true, email: true, role: true },
@@ -52,7 +52,7 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash); // <--- DAN INI YANG DIGANTI
     if (!isPasswordValid) {
       return res.status(401).json({
         status: "error",

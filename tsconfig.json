@@ -4,7 +4,7 @@
     // File Layout
     "outDir": "./dist",
     "rootDir": ".",
-
+    
     // Environment Settings
     "module": "CommonJS",
     "moduleResolution": "node",

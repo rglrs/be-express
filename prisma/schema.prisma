@@ -1,25 +1,65 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
+// Ini mesin pembuat laci (Prisma Client)
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
+// Ini informasi database apa yang dipakai
 datasource db {
   provider = "postgresql"
 }
 
+// Ini aturan ketat (enum) untuk laci peran (role)
 enum Role {
   ADMIN
   STUDENT
 }
 
+// --- LACI 1: Data Login ---
 model User {
-  id       String @id @default(uuid())
-  email    String @unique
-  password String
-  role     Role   @default(STUDENT)
+  id            String   @id @default(uuid()) // ID pakai kode acak (String)
+  email         String   @unique
+  password_hash String   // Namanya disesuaikan dengan task brief
+  role          Role     @default(STUDENT) // Pakai aturan Enum tadi
+  
+  // Ini tali penghubung ke laci siswa
+  student       Student? 
+}
+
+// --- LACI 2: Biodata Siswa ---
+model Student {
+  id           String    @id @default(uuid())
+  user_id      String    @unique // Disesuaikan jadi String karena ID User String
+  nisn         String    @unique
+  nama_lengkap String
+  kelas        String
+
+  // Tali penghubung
+  user         User      @relation(fields: [user_id], references: [id])
+  invoices     Invoice[] 
+}
+
+// --- LACI 3: Kertas Bon/Tagihan ---
+model Invoice {
+  id            String        @id @default(uuid())
+  student_id    String        // Disesuaikan jadi String
+  judul_tagihan String
+  bulan         String
+  nominal       Int           // Uang tetap pakai angka (Int)
+  status        String        @default("pending")
+
+  // Tali penghubung
+  student       Student       @relation(fields: [student_id], references: [id])
+  transactions  Transaction[] 
+}
+
+// --- LACI 4: Bukti Struk Bayar (Midtrans) ---
+model Transaction {
+  id                 String   @id @default(uuid())
+  invoice_id         String   // Disesuaikan jadi String
+  order_id_midtrans  String   @unique 
+  snap_token         String?  
+  metode_bayar       String?  
+
+  // Tali penghubung
+  invoice            Invoice  @relation(fields: [invoice_id], references: [id])
 }
