@@ -1,13 +1,52 @@
 import { Request, Response } from 'express';
-import { prisma } from '../utils/prisma'; 
+import  prisma  from '../utils/prisma'; 
 
 // 1. READ ALL (Ambil Semua Data)
 export const getStudents = async (req: Request, res: Response) => {
     try {
-        const students = await prisma.student.findMany();
-        res.status(200).json({ status: "success", data: students });
-    } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message });
+        // 1. Ambil request dari URL (misal: ?page=1&limit=10&search=udin)
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const search = (req.query.search as string) || "";
+
+        // 2. Hitung rumus "Lewati berapa data?" (Skip)
+        const skip = (page - 1) * limit;
+
+        // 3. Suruh Prisma nyari data sesuai pencarian dan batasan halaman
+        const students = await prisma.student.findMany({
+            skip: skip,
+            take: limit,
+            where: {
+                nama_lengkap: {
+                    contains: search,
+                    mode: 'insensitive' // Biar huruf besar/kecil (Udin/udin) tetep ketemu
+                }
+            }
+        });
+
+        // 4. Hitung total semua murid (biar Frontend tahu ada berapa halaman)
+        const totalData = await prisma.student.count({
+            where: {
+                nama_lengkap: {
+                    contains: search,
+                    mode: 'insensitive'
+                }
+            }
+        });
+
+        // 5. Kirim balasan ke Postman/Web
+        res.status(200).json({
+            status: "success",
+            data: students,
+            meta: {
+                halaman_sekarang: page,
+                data_per_halaman: limit,
+                total_semua_data: totalData,
+                total_halaman: Math.ceil(totalData / limit)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Waduh, gagal ngambil data nih!" });
     }
 };
 

@@ -14,21 +14,29 @@ enum Role {
   STUDENT
 }
 
+// Enum (pilihan kasta) untuk status tagihan
+enum InvoiceStatus {
+  PENDING
+  PAID
+}
+
 // --- LACI 1: Data Login ---
 model User {
-  id            String   @id @default(uuid()) // ID pakai kode acak (String)
+  id            String   @id @default(uuid())
   email         String   @unique
-  password_hash String   // Namanya disesuaikan dengan task brief
-  role          Role     @default(STUDENT) // Pakai aturan Enum tadi
+  password_hash String   
+  role          Role     @default(STUDENT) 
   
-  // Ini tali penghubung ke laci siswa
+  // Tali penghubung
   student       Student? 
+  
+  @@map("users")
 }
 
 // --- LACI 2: Biodata Siswa ---
 model Student {
   id           String    @id @default(uuid())
-  user_id      String    @unique // Disesuaikan jadi String karena ID User String
+  user_id      String    @unique 
   nisn         String    @unique
   nama_lengkap String
   kelas        String
@@ -36,30 +44,40 @@ model Student {
   // Tali penghubung
   user         User      @relation(fields: [user_id], references: [id])
   invoices     Invoice[] 
+
+  @@map("students")
 }
 
 // --- LACI 3: Kertas Bon/Tagihan ---
 model Invoice {
   id            String        @id @default(uuid())
-  student_id    String        // Disesuaikan jadi String
+  student_id    String
   judul_tagihan String
   bulan         String
-  nominal       Int           // Uang tetap pakai angka (Int)
-  status        String        @default("pending")
+  nominal       Int
+  status        InvoiceStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   // Tali penghubung
   student       Student       @relation(fields: [student_id], references: [id])
-  transactions  Transaction[] 
+  transactions  Transaction[]
+
+  @@map("invoices")
 }
 
 // --- LACI 4: Bukti Struk Bayar (Midtrans) ---
 model Transaction {
-  id                 String   @id @default(uuid())
-  invoice_id         String   // Disesuaikan jadi String
-  order_id_midtrans  String   @unique 
-  snap_token         String?  
-  metode_bayar       String?  
+  id                String   @id @default(uuid())
+  invoice_id        String
+  order_id_midtrans String?  @unique 
+  snap_token        String?  @db.Text
+  metode_bayar      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Tali penghubung
-  invoice            Invoice  @relation(fields: [invoice_id], references: [id])
+  invoice           Invoice  @relation(fields: [invoice_id], references: [id])
+
+  @@map("transactions")
 }
