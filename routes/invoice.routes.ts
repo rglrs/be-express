@@ -1,18 +1,27 @@
 import express from 'express';
-// Pastikan path import ini sesuai sama folder kamu ya Bosku!
+// 1. Import nama satpam yang BENER dari file middleware kamu
+import { verifyToken, isAdmin } from '../middlewares/auth.middleware'; 
 import { createInvoice, getInvoices, bayarTagihan, midtransWebhook } from '../controllers/invoice.controller';
+
 const router = express.Router();
 
-// 1. Rute buat nyetak tagihan baru 
-router.post('/', createInvoice);
+// ==========================================
+// RUTE RAHASIA (Cuma bisa dibuka sama Admin)
+// ==========================================
+// Pasang Satpam 1 (verifyToken) & Satpam 2 (isAdmin) berurutan
+router.post('/', verifyToken, isAdmin, createInvoice); 
+router.get('/', verifyToken, isAdmin, getInvoices);    
 
-// 2. Rute buat narik semua data tagihan 
-router.get('/', getInvoices);
+// ==========================================
+// RUTE SISWA (Cuma butuh login buat bayar, gak perlu Admin)
+// ==========================================
+// Cukup pasang Satpam 1 (verifyToken) aja
+router.post('/:id/bayar', verifyToken, bayarTagihan); 
 
-// 3. RUTE JAGOAN KITA: Buat manggil Midtrans! 💳
-// Perhatiin ada ':id' di tengah-tengah URL-nya
-router.post('/:id/bayar', bayarTagihan);
-// 4. RUTE RESEPSIONIS (Webhook Midtrans) 🔔
+// ==========================================
+// RUTE ROBOT MIDTRANS (Pintu ngablak)
+// ==========================================
+// JANGAN DIKASIH SATPAM! Biar webhook bisa masuk 🤖
 router.post('/webhook', midtransWebhook);
 
 export default router;
