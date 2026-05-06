@@ -1,54 +1,44 @@
-// Ini mesin pembuat laci (Prisma Client)
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
-// Ini informasi database apa yang dipakai
 datasource db {
   provider = "postgresql"
 }
 
-// Ini aturan ketat (enum) untuk laci peran (role)
 enum Role {
   ADMIN
   STUDENT
 }
 
-// Enum (pilihan kasta) untuk status tagihan
 enum InvoiceStatus {
   PENDING
   PAID
 }
 
-// --- LACI 1: Data Login ---
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
-  password_hash String   
-  role          Role     @default(STUDENT) 
-  
-  // Tali penghubung
-  student       Student? 
-  
+  password_hash String
+  role          Role     @default(STUDENT)
+  student       Student?
+
   @@map("users")
 }
 
-// --- LACI 2: Biodata Siswa ---
 model Student {
   id           String    @id @default(uuid())
-  user_id      String    @unique 
+  user_id      String    @unique
   nisn         String    @unique
   nama_lengkap String
   kelas        String
-
-  // Tali penghubung
-  user         User      @relation(fields: [user_id], references: [id])
-  invoices     Invoice[] 
+  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  invoices     Invoice[]
 
   @@map("students")
 }
 
-// --- LACI 3: Kertas Bon/Tagihan ---
 model Invoice {
   id            String        @id @default(uuid())
   student_id    String
@@ -58,26 +48,21 @@ model Invoice {
   status        InvoiceStatus @default(PENDING)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-
-  // Tali penghubung
-  student       Student       @relation(fields: [student_id], references: [id])
+  student       Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
   transactions  Transaction[]
 
   @@map("invoices")
 }
 
-// --- LACI 4: Bukti Struk Bayar (Midtrans) ---
 model Transaction {
   id                String   @id @default(uuid())
   invoice_id        String
-  order_id_midtrans String?  @unique 
+  order_id_midtrans String?  @unique
   snap_token        String?  @db.Text
   metode_bayar      String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
-  // Tali penghubung
-  invoice           Invoice  @relation(fields: [invoice_id], references: [id])
+  invoice           Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
   @@map("transactions")
 }

@@ -1,39 +1,53 @@
-import 'dotenv/config'
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../src/generated/prisma/client'
-import bcrypt from 'bcrypt'
+import 'dotenv/config';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/prisma';
+import bcrypt from 'bcrypt';
+import { Pool } from 'pg';
 
-const connectionString = `${process.env.DATABASE_URL}`
-const adapter = new PrismaPg({ connectionString })
-const prisma = new PrismaClient({ adapter })
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const saltRounds = 12;
+  const saltRounds = 10;
+  
   const adminPassword = await bcrypt.hash('admin123', saltRounds);
-  const studentPassword = await bcrypt.hash('student123', saltRounds);
-
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@test.com' },
+  await prisma.user.upsert({
+    where: { email: 'admin@sora.com' },
     update: {},
     create: {
-      email: 'admin@test.com',
-      password: adminPassword,
+      email: 'admin@sora.com',
+      password_hash: adminPassword,
       role: 'ADMIN',
     },
   });
 
-  const student = await prisma.user.upsert({
-    where: { email: 'student@test.com' },
+  const studentPassword = await bcrypt.hash('student123', saltRounds);
+  const studentUser = await prisma.user.upsert({
+    where: { email: 'student@sora.com' },
     update: {},
     create: {
-      email: 'student@test.com',
-      password: studentPassword,
+      email: 'student@sora.com',
+      password_hash: studentPassword,
       role: 'STUDENT',
     },
   });
 
+  await prisma.student.upsert({
+    where: { user_id: studentUser.id },
+    update: {},
+    create: {
+      user_id: studentUser.id,
+      nisn: '1234567890',
+      nama_lengkap: 'Siswa Percobaan',
+      kelas: '10A'
+    }
+  });
+
   console.log('Seeding finished.');
-  console.log({ admin, student });
 }
 
 main()

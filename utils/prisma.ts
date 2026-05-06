@@ -1,17 +1,10 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg'; // <-- Pakai Pool dari pg
-import 'dotenv/config';
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../generated/prisma/client";
 
-// Siapin jalur koneksinya
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
-});
+const connectionString = `${process.env.DATABASE_URL}`;
 
-// Pasang supirnya
-const adapter = new PrismaPg(pool);
-
-// Nyalain mesin Prisma-nya
+const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
-export default prisma;
+export { prisma };

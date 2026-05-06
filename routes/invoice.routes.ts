@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { payInvoice } from '../controllers/invoice.controller';
+import { payInvoice, getAllInvoices } from '../controllers/invoice.controller';
+import { verifyToken } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// INI DIA PINTU YANG DICARI-CARI SAMA REACT TADI!
-router.post('/:id/pay', payInvoice);
+router.get('/', verifyToken, getAllInvoices);
+router.post('/:id/pay', verifyToken, payInvoice);
 
 export default router;
