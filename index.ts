@@ -8,15 +8,26 @@ import invoiceRoutes from './routes/invoice.routes';
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Untuk testing apakah backend menyala di Vercel
+app.get('/', (req, res) => {
+    res.send("Backend Server is Running!");
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/invoices', invoiceRoutes);
 
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+// Jalankan app.listen HANYA jika bukan di Vercel (production)
+if (process.env.NODE_ENV !== 'production') {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+    });
+}
+
+// WAJIB untuk Vercel: export app
+export default app;
