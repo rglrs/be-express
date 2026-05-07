@@ -1,4 +1,5 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { snap } from '../utils/midtrans';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
@@ -6,7 +7,6 @@ import { Prisma } from '../generated/prisma/client';
 
 export const payInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        // Fix 1: cast id agar tidak string | string[] | undefined
         const id = req.params['id'] as string;
         const userId = req.user?.id;
 
@@ -35,8 +35,6 @@ export const payInvoice = async (req: AuthRequest, res: Response): Promise<void>
         }
 
         const orderId = `${invoice.id}-${Date.now()}`;
-
-        // Fix 2: cast email ke string agar tidak conflict dengan exactOptionalPropertyTypes
         const email = invoice.student.user.email as string;
 
         const parameter = {
@@ -71,7 +69,6 @@ export const getAllInvoices = async (req: AuthRequest, res: Response): Promise<v
         const userId = req.user?.id;
         const isAdmin = req.user?.role === 'ADMIN';
 
-        // Fix 3: bangun where clause secara eksplisit agar userId undefined tidak masuk ke Prisma where
         const where: Prisma.InvoiceWhereInput = isAdmin
             ? {}
             : { student: { user_id: userId ?? '' } };
@@ -82,6 +79,88 @@ export const getAllInvoices = async (req: AuthRequest, res: Response): Promise<v
         });
 
         res.json({ status: "success", data: invoices });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+
+export const createInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { student_id, judul_tagihan, bulan, nominal } = req.body;
+
+        const invoice = await prisma.invoice.create({
+            data: {
+                student_id,
+                judul_tagihan,
+                bulan,
+                nominal: parseInt(nominal),
+                status: 'PENDING'
+            }
+        });
+
+        res.status(201).json({ status: "success", data: invoice });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+
+export const createMassInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { targetKelas, judul_tagihan, bulan, nominal } = req.body;
+
+        const whereClause = targetKelas === 'Semua' ? {} : { kelas: { startsWith: targetKelas } };
+        const students = await prisma.student.findMany({ where: whereClause });
+
+        if (students.length === 0) {
+            res.status(404).json({ status: "error", message: "Tidak ada siswa di kelas tersebut" });
+            return;
+        }
+
+        const invoiceData = students.map(student => ({
+            student_id: student.id,
+            judul_tagihan,
+            bulan,
+            nominal: parseInt(nominal),
+            status: 'PENDING' as const
+        }));
+
+        await prisma.invoice.createMany({
+            data: invoiceData
+        });
+
+        res.status(201).json({ status: "success", message: `Berhasil membuat ${invoiceData.length} tagihan` });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+
+export const midtransCallback = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { order_id, status_code, gross_amount, signature_key, transaction_status } = req.body;
+        
+        const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
+
+        const hashed = crypto.createHash('sha512').update(order_id + status_code + gross_amount + serverKey).digest('hex');
+
+        if (hashed !== signature_key) {
+            res.status(400).json({ status: "error", message: "Invalid signature" });
+            return;
+        }
+
+        if (transaction_status === 'settlement' || transaction_status === 'capture') {
+            const transaction = await prisma.transaction.findFirst({
+                where: { order_id_midtrans: order_id }
+            });
+
+            if (transaction) {
+                await prisma.invoice.update({
+                    where: { id: transaction.invoice_id },
+                    data: { status: 'PAID' }
+                });
+            }
+        }
+
+        res.status(200).json({ status: "success" });
     } catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
     }

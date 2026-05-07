@@ -11,8 +11,8 @@ import { validateStudentUpdate } from '../middlewares/validator.middleware';
 const router = Router();
 
 router.get('/', verifyToken, isAdmin, getStudents);          
-router.get('/:id', verifyToken, isAdmin, getStudentById);           
-router.put('/:id', verifyToken, isAdmin, validateStudentUpdate, updateStudent);      
+router.get('/:id', verifyToken, getStudentById);           
+router.put('/:id', verifyToken, validateStudentUpdate, updateStudent);      
 router.delete('/:id', verifyToken, isAdmin, deleteStudent);   
 
 export default router;
