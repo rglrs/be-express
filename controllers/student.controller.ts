@@ -81,9 +81,12 @@ export const updateStudent = async (req: AuthRequest, res: Response): Promise<vo
         const { id } = req.params;
         const { 
             nisn, nama_lengkap, kelas, jurusan, angkatan, 
-            email, no_hp, alamat, nama_ortu, no_hp_ortu 
+            email, no_hp, alamat, nama_ortu, no_hp_ortu,
+            email_orang_tua, email_ortu
         } = req.body;
         
+        const parentEmail = email_orang_tua !== undefined ? email_orang_tua : email_ortu;
+
         const currentStudent = await prisma.student.findUnique({
             where: { id: String(id) },
             include: { orang_tua: true }
@@ -103,20 +106,22 @@ export const updateStudent = async (req: AuthRequest, res: Response): Promise<vo
 
         let orangTuaId = currentStudent.orang_tua_id;
         
-        if (nama_ortu || no_hp_ortu) {
+        if (nama_ortu !== undefined || no_hp_ortu !== undefined || parentEmail !== undefined) {
             if (orangTuaId) {
                 await prisma.orangTua.update({
                     where: { id: orangTuaId },
                     data: {
                         nama_lengkap: nama_ortu !== undefined ? nama_ortu : currentStudent.orang_tua?.nama_lengkap,
-                        no_hp: no_hp_ortu !== undefined ? no_hp_ortu : currentStudent.orang_tua?.no_hp
+                        no_hp: no_hp_ortu !== undefined ? no_hp_ortu : currentStudent.orang_tua?.no_hp,
+                        email: parentEmail !== undefined ? parentEmail : currentStudent.orang_tua?.email
                     }
                 });
             } else if (nama_ortu) {
                 const newOrangTua = await prisma.orangTua.create({
                     data: {
                         nama_lengkap: nama_ortu,
-                        no_hp: no_hp_ortu || null
+                        no_hp: no_hp_ortu || null,
+                        email: parentEmail || null
                     }
                 });
                 orangTuaId = newOrangTua.id;
@@ -133,6 +138,7 @@ export const updateStudent = async (req: AuthRequest, res: Response): Promise<vo
                 angkatan: angkatan ?? undefined,
                 no_hp: no_hp ?? undefined,
                 alamat: alamat ?? undefined,
+                email_orang_tua: parentEmail ?? undefined,
                 orang_tua_id: orangTuaId
             },
             include: {

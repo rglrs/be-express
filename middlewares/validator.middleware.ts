@@ -8,7 +8,7 @@ const registerSchema = z.object({
     nama_lengkap: z.string().min(3, "Name must be at least 3 characters"),
     kelas: z.string().min(2, "Class is required"),
     jurusan: z.string().optional(),
-    angkatan: z.string().optional() // <--- Tambahan
+    angkatan: z.string().optional()
 });
 
 const studentUpdateSchema = z.object({
@@ -16,7 +16,7 @@ const studentUpdateSchema = z.object({
     nama_lengkap: z.string().min(3).optional(),
     kelas: z.string().min(2).optional(),
     jurusan: z.string().optional(),
-    angkatan: z.string().optional() // <--- Tambahan
+    angkatan: z.string().optional()
 });
 
 const blockStudentSchema = z.object({
@@ -28,6 +28,17 @@ const invoiceSchema = z.object({
     judul_tagihan: z.string().min(3, "Invoice title must be at least 3 characters"),
     jenis_tagihan: z.enum(['SPP', 'DU', 'BUKU', 'SERAGAM', 'LAINNYA']).optional(),
     bulan: z.string().optional(),
+    tahun: z.number().int().optional(),
+    nominal: z.number().int().positive("Nominal must be positive"),
+    tanggal_jatuh_tempo: z.string().datetime().optional()
+});
+
+const massInvoiceSchema = z.object({
+    targetKelas: z.string().min(1, "Target kelas is required"),
+    judul_tagihan: z.string().min(3, "Invoice title must be at least 3 characters"),
+    jenis_tagihan: z.enum(['SPP', 'DU', 'BUKU', 'SERAGAM', 'LAINNYA']).optional(),
+    bulan: z.string().optional(),
+    tahun: z.number().int().optional(),
     nominal: z.number().int().positive("Nominal must be positive"),
     tanggal_jatuh_tempo: z.string().datetime().optional()
 });
@@ -67,11 +78,7 @@ const systemConfigSchema = z.object({
 export const validateRegister = (req: Request, res: Response, next: NextFunction): void => {
     const result = registerSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -80,11 +87,7 @@ export const validateRegister = (req: Request, res: Response, next: NextFunction
 export const validateStudentUpdate = (req: Request, res: Response, next: NextFunction): void => {
     const result = studentUpdateSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -93,11 +96,7 @@ export const validateStudentUpdate = (req: Request, res: Response, next: NextFun
 export const validateBlockStudent = (req: Request, res: Response, next: NextFunction): void => {
     const result = blockStudentSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -106,11 +105,16 @@ export const validateBlockStudent = (req: Request, res: Response, next: NextFunc
 export const validateInvoice = (req: Request, res: Response, next: NextFunction): void => {
     const result = invoiceSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        return;
+    }
+    next();
+};
+
+export const validateMassInvoice = (req: Request, res: Response, next: NextFunction): void => {
+    const result = massInvoiceSchema.safeParse(req.body);
+    if (!result.success) {
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -119,11 +123,7 @@ export const validateInvoice = (req: Request, res: Response, next: NextFunction)
 export const validateRegistration = (req: Request, res: Response, next: NextFunction): void => {
     const result = registrationSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -132,11 +132,7 @@ export const validateRegistration = (req: Request, res: Response, next: NextFunc
 export const validateAcceptRegistration = (req: Request, res: Response, next: NextFunction): void => {
     const result = acceptRegistrationSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -145,11 +141,7 @@ export const validateAcceptRegistration = (req: Request, res: Response, next: Ne
 export const validateRejectRegistration = (req: Request, res: Response, next: NextFunction): void => {
     const result = rejectRegistrationSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -158,11 +150,7 @@ export const validateRejectRegistration = (req: Request, res: Response, next: Ne
 export const validateUpdateStudentStatus = (req: Request, res: Response, next: NextFunction): void => {
     const result = updateStudentStatusSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -171,11 +159,7 @@ export const validateUpdateStudentStatus = (req: Request, res: Response, next: N
 export const validateSystemConfig = (req: Request, res: Response, next: NextFunction): void => {
     const result = systemConfigSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({
-            status: "error",
-            message: "Validation failed",
-            errors: result.error.flatten().fieldErrors
-        });
+        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();

@@ -6,7 +6,11 @@ import { kirimEmailPPDB } from './email.controller';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { email, password, nisn, nama_lengkap, kelas, jurusan, angkatan } = req.body;
+        const { 
+            email, password, nisn, nama_lengkap, kelas, jurusan, angkatan, 
+            no_hp, alamat, nama_orang_tua, email_orang_tua, hp_orang_tua 
+        } = req.body;
+        
         const existingUser = await prisma.user.findUnique({ where: { email } });
         
         if (existingUser) {
@@ -25,6 +29,18 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                 }
             });
 
+            let orangTuaId = null;
+            if (nama_orang_tua) {
+                const ortu = await tx.orangTua.create({
+                    data: {
+                        nama_lengkap: nama_orang_tua,
+                        no_hp: hp_orang_tua || null,
+                        email: email_orang_tua || null
+                    }
+                });
+                orangTuaId = ortu.id;
+            }
+
             const student = await tx.student.create({
                 data: {
                     user_id: user.id,
@@ -32,7 +48,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                     nama_lengkap,
                     kelas,
                     jurusan,
-                    angkatan
+                    angkatan,
+                    no_hp: no_hp || null,
+                    alamat: alamat || null,
+                    email_orang_tua: email_orang_tua || null,
+                    orang_tua_id: orangTuaId
                 }
             });
 

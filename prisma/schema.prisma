@@ -77,6 +77,7 @@ model Student {
   id              String        @id @default(uuid())
   user_id         String        @unique
   nisn            String        @unique
+  email_orang_tua String?
   nama_lengkap    String
   kelas           String
   jurusan         String?

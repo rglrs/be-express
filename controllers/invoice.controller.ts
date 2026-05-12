@@ -66,6 +66,79 @@ export const payInvoice = async (req: AuthRequest, res: Response): Promise<void>
     }
 };
 
+export const payPaket = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { paket } = req.body;
+        const userId = req.user?.id;
+
+        const student = await prisma.student.findUnique({
+            where: { user_id: userId ?? '' },
+            include: { user: true }
+        });
+
+        if (!student) {
+            res.status(404).json({ status: "error", message: "Student not found" });
+            return;
+        }
+
+        let nominal = 0;
+        let judul = '';
+
+        if (paket === 'SEMESTER') {
+            nominal = 1500000;
+            judul = 'Paket Pelunasan SPP 1 Semester';
+        } else if (paket === 'TAHUN') {
+            nominal = 3000000;
+            judul = 'Paket Pelunasan SPP 1 Tahun';
+        } else if (paket === 'LULUS') {
+            nominal = 9000000;
+            judul = 'Paket Pelunasan SPP Sampai Lulus';
+        } else {
+            res.status(400).json({ status: "error", message: "Invalid package type" });
+            return;
+        }
+
+        const invoice = await prisma.invoice.create({
+            data: {
+                student_id: student.id,
+                judul_tagihan: judul,
+                jenis_tagihan: 'SPP',
+                nominal: nominal,
+                tahun: new Date().getFullYear(),
+                status: 'PENDING'
+            }
+        });
+
+        const orderId = `${invoice.id}-${Date.now()}`;
+        const email = student.user.email as string;
+
+        const parameter = {
+            transaction_details: {
+                order_id: orderId,
+                gross_amount: invoice.nominal
+            },
+            customer_details: {
+                first_name: student.nama_lengkap,
+                email
+            }
+        };
+
+        const transaction = await snap.createTransaction(parameter);
+
+        await prisma.transaction.create({
+            data: {
+                invoice_id: invoice.id,
+                order_id_midtrans: orderId,
+                snap_token: transaction.token ?? null
+            }
+        });
+
+        res.json({ status: "success", data: { token: transaction.token } });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+
 export const getAllInvoices = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const userId = req.user?.id;
@@ -97,7 +170,7 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
                 jenis_tagihan: jenis_tagihan || 'LAINNYA',
                 bulan: bulan ?? null,
                 nominal: parseInt(nominal),
-                tahun: tahun || new Date().getFullYear(),
+                tahun: parseInt(tahun) || new Date().getFullYear(),
                 status: 'PENDING'
             }
         });
@@ -126,7 +199,7 @@ export const createMassInvoice = async (req: AuthRequest, res: Response): Promis
             jenis_tagihan: jenis_tagihan || 'LAINNYA',
             bulan: bulan ?? null,
             nominal: parseInt(nominal),
-            tahun: tahun || new Date().getFullYear(),
+            tahun: parseInt(tahun) || new Date().getFullYear(),
             status: 'PENDING' as const
         }));
 
