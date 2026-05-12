@@ -6,7 +6,7 @@ import { kirimEmailPPDB } from './email.controller';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { email, password, nisn, nama_lengkap, kelas } = req.body;
+        const { email, password, nisn, nama_lengkap, kelas, jurusan, angkatan } = req.body;
         const existingUser = await prisma.user.findUnique({ where: { email } });
         
         if (existingUser) {
@@ -30,7 +30,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                     user_id: user.id,
                     nisn,
                     nama_lengkap,
-                    kelas
+                    kelas,
+                    jurusan,
+                    angkatan
                 }
             });
 
@@ -91,6 +93,42 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 } 
             } 
         });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+
+export const changePassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = (req as any).user?.id;
+        const { oldPassword, newPassword } = req.body;
+
+        if (!userId) {
+            res.status(401).json({ status: "error", message: "Unauthorized" });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        
+        if (!user) {
+            res.status(404).json({ status: "error", message: "User not found" });
+            return;
+        }
+
+        const isPasswordValid = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!isPasswordValid) {
+            res.status(400).json({ status: "error", message: "Password lama salah" });
+            return;
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password_hash: hashedPassword }
+        });
+
+        res.json({ status: "success", message: "Password berhasil diubah" });
     } catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
     }

@@ -12,9 +12,44 @@ enum Role {
   STUDENT
 }
 
+enum InvoiceType {
+  SPP
+  DU
+  BUKU
+  SERAGAM
+  LAINNYA
+}
+
 enum InvoiceStatus {
   PENDING
   PAID
+  OVERDUE
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  EXPIRED
+}
+
+enum StudentStatus {
+  AKTIF
+  UNDUR_DIRI
+  KELUAR
+}
+
+enum RegistrationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum EmailLogType {
+  TAGIHAN_BARU
+  PEMBAYARAN_BERHASIL
+  KETERLAMBATAN
+  LAPORAN_BULANAN
 }
 
 model User {
@@ -27,42 +62,227 @@ model User {
   @@map("users")
 }
 
-model Student {
+model OrangTua {
   id           String    @id @default(uuid())
-  user_id      String    @unique
-  nisn         String    @unique
   nama_lengkap String
-  kelas        String
-  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  invoices     Invoice[]
+  no_hp        String?
+  email        String?
+  alamat       String?
+  students     Student[]
+
+  @@map("orang_tua")
+}
+
+model Student {
+  id              String        @id @default(uuid())
+  user_id         String        @unique
+  nisn            String        @unique
+  nama_lengkap    String
+  kelas           String
+  jurusan         String?
+  angkatan        String?
+  no_hp           String?       
+  alamat          String?       
+  orang_tua_id    String?
+  status          StudentStatus @default(AKTIF)
+  blokir_ujian    Boolean       @default(false)
+  alasan_blokir   String?
+  tanggal_blokir  DateTime?
+  is_beasiswa     Boolean       @default(false)
+
+  user            User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  orang_tua       OrangTua?     @relation(fields: [orang_tua_id], references: [id], onDelete: SetNull)
+  invoices        Invoice[]
+  email_logs      EmailLog[]
+  registration    Registration?
+  audit_logs      AuditLog[]
 
   @@map("students")
 }
 
 model Invoice {
-  id            String        @id @default(uuid())
-  student_id    String
-  judul_tagihan String
-  bulan         String
-  nominal       Int
-  status        InvoiceStatus @default(PENDING)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  student       Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  transactions  Transaction[]
+  id                  String        @id @default(uuid())
+  student_id          String
+  judul_tagihan       String
+  jenis_tagihan       InvoiceType
+  bulan               String?
+  tahun               Int
+  semester            Int?
+  nominal             Int
+  status              InvoiceStatus @default(PENDING)
+  tanggal_jatuh_tempo DateTime?
+  tanggal_lunas       DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  student             Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  transactions        Transaction[]
+  email_logs          EmailLog[]
 
   @@map("invoices")
 }
 
 model Transaction {
-  id                String   @id @default(uuid())
-  invoice_id        String
-  order_id_midtrans String?  @unique
-  snap_token        String?  @db.Text
-  metode_bayar      String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  invoice           Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  id                  String            @id @default(uuid())
+  invoice_id          String
+  order_id_midtrans   String?           @unique
+  snap_token          String?           @db.Text
+  metode_bayar        String?
+  jumlah_bayar        Int?
+  status              TransactionStatus @default(PENDING)
+  bukti_transfer_url  String?
+  verified_at         DateTime?
+  verified_by         String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  invoice             Invoice           @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
   @@map("transactions")
+}
+
+model Registration {
+  id             String             @id @default(uuid())
+  student_id     String?            @unique
+  nama_lengkap   String
+  nisn           String             @unique
+  email          String             @unique
+  no_hp          String?            
+  alamat         String?
+  jurusan        String
+  nama_orang_tua String
+  hp_orang_tua   String?
+  status         RegistrationStatus @default(PENDING)
+  catatan_admin  String?
+  berkas_url     String[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  student        Student?           @relation(fields: [student_id], references: [id], onDelete: SetNull)
+
+  @@map("registrations")
+}
+
+model EmailLog {
+  id          String       @id @default(uuid())
+  student_id  String
+  invoice_id  String?
+  jenis       EmailLogType
+  to_email    String
+  subject     String
+  status      String       @default("SENT")
+  sent_at     DateTime     @default(now())
+
+  student     Student      @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  invoice     Invoice?     @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+
+  @@map("email_logs")
+}
+
+model TagihanTemplate {
+  id             String      @id @default(uuid())
+  judul          String
+  jenis_tagihan  InvoiceType
+  nominal        Int
+  kelas_target   String?
+  semester       Int?
+  tahun          Int
+  createdAt      DateTime    @default(now())
+
+  @@map("tagihan_templates")
+}
+
+model LaporanKeuangan {
+  id              String   @id @default(uuid())
+  judul           String
+  periode_bulan   Int?
+  periode_tahun   Int
+  total_tagihan   Int
+  total_lunas     Int
+  total_tunggakan Int
+  file_url        String?
+  generated_at    DateTime @default(now())
+  generated_by    String?
+
+  @@map("laporan_keuangan")
+}
+
+model SystemConfig {
+  id                           String   @id @default(uuid())
+  batas_hari_jatuh_tempo       Int      @default(30)
+  batas_hari_tunggakan         Int      @default(90)
+  persentase_denda_per_hari    Float    @default(0.5)
+  email_reminder_hari_ke       Int      @default(7)
+  aktifkan_notifikasi_email    Boolean  @default(true)
+  aktifkan_payment_gateway     Boolean  @default(true)
+  max_upload_file_size_mb      Int      @default(10)
+  updated_at                   DateTime @updatedAt
+  updated_by                   String?
+
+  @@map("system_configs")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  admin_id      String
+  aksi          String
+  entity_type   String
+  entity_id     String
+  student_id    String?
+  deskripsi     String?
+  perubahan_old String?  @db.Text
+  perubahan_new String?  @db.Text
+  ip_address    String?
+  user_agent    String?
+  created_at    DateTime @default(now())
+
+  student       Student? @relation(fields: [student_id], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model Broadcast {
+  id        String   @id @default(uuid())
+  judul     String
+  pesan     String   @db.Text
+  tipe      String   @default("Informasi")
+  tanggal   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("broadcasts")
+}
+
+model Kalender {
+  id        String   @id @default(uuid())
+  judul     String
+  deskripsi String?  @db.Text
+  tipe      String   @default("Akademik")
+  tanggal   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("kalenders")
+}
+
+model Major {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  @@map("majors")
+}
+
+model Grade {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  @@map("grades")
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  year      String   @unique // Contoh: "2026/2027"
+  is_active Boolean  @default(false)
+  createdAt DateTime @default(now())
+  @@map("academic_years")
 }

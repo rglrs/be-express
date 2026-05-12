@@ -6,6 +6,8 @@ export interface AuthRequest extends Request {
         id: string;
         role: string;
     };
+    ipAddress?: string | undefined;
+    userAgent?: string | undefined;
 }
 
 export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
@@ -31,6 +33,10 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
             role: decoded.role
         };
         
+        // Capture IP dan user agent untuk audit
+        req.ipAddress = (req.ip || req.connection.remoteAddress) as string | undefined;
+        req.userAgent = req.get('user-agent') as string | undefined;
+        
         next();
     } catch (error) {
         res.status(401).json({ status: "error", message: "Invalid or expired token" });
@@ -42,5 +48,13 @@ export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction): vo
         next();
     } else {
         res.status(403).json({ status: "error", message: "Forbidden: Admin access required" });
+    }
+};
+
+export const isStudent = (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (req.user && req.user.role === 'STUDENT') {
+        next();
+    } else {
+        res.status(403).json({ status: "error", message: "Forbidden: Student access required" });
     }
 };
