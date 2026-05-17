@@ -161,7 +161,7 @@ export const getAllInvoices = async (req: AuthRequest, res: Response): Promise<v
 
 export const createInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { student_id, judul_tagihan, jenis_tagihan, bulan, nominal, tahun } = req.body;
+        const { student_id, judul_tagihan, jenis_tagihan, bulan, nominal, tahun, tanggal_jatuh_tempo } = req.body;
 
         const invoice = await prisma.invoice.create({
             data: {
@@ -171,7 +171,8 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
                 bulan: bulan ?? null,
                 nominal: parseInt(nominal),
                 tahun: parseInt(tahun) || new Date().getFullYear(),
-                status: 'PENDING'
+                status: 'PENDING',
+                tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
             }
         });
 
@@ -183,7 +184,7 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
 
 export const createMassInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { targetKelas, judul_tagihan, jenis_tagihan, bulan, nominal, tahun } = req.body;
+        const { targetKelas, judul_tagihan, jenis_tagihan, bulan, nominal, tahun, tanggal_jatuh_tempo } = req.body;
 
         const whereClause = targetKelas === 'Semua' ? {} : { kelas: { startsWith: targetKelas as string } };
         const students = await prisma.student.findMany({ where: whereClause });
@@ -200,7 +201,8 @@ export const createMassInvoice = async (req: AuthRequest, res: Response): Promis
             bulan: bulan ?? null,
             nominal: parseInt(nominal),
             tahun: parseInt(tahun) || new Date().getFullYear(),
-            status: 'PENDING' as const
+            status: 'PENDING' as const,
+            tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
         }));
 
         await prisma.invoice.createMany({
