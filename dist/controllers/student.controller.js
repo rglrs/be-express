@@ -25,7 +25,7 @@ const getStudents = async (req, res) => {
             skip,
             take: limit,
             where,
-            include: { user: { select: { email: true, role: true } }, orang_tua: true }
+            include: { user: { select: { email: true, role: true } }, orang_tua: true, invoices: true }
         });
         const totalData = await prisma_1.prisma.student.count({ where });
         res.status(200).json({
@@ -61,7 +61,6 @@ const getStudentById = async (req, res) => {
             res.status(404).json({ status: "error", message: "Student not found" });
             return;
         }
-        // Authorization: student can only see their own data
         if (req.user?.role === 'STUDENT' && student.user_id !== userId) {
             res.status(403).json({ status: "error", message: "Forbidden: You don't have access to this student data" });
             return;
@@ -76,17 +75,65 @@ exports.getStudentById = getStudentById;
 const updateStudent = async (req, res) => {
     try {
         const { id } = req.params;
-        const { nisn, nama_lengkap, kelas, jurusan } = req.body;
+        const { nisn, nama_lengkap, kelas, jurusan, angkatan, email, email_beasiswa, no_hp, alamat, nama_ortu, no_hp_ortu, email_orang_tua, email_ortu } = req.body;
+        const parentEmail = email_orang_tua !== undefined ? email_orang_tua : email_ortu;
+        const currentStudent = await prisma_1.prisma.student.findUnique({
+            where: { id: String(id) },
+            include: { orang_tua: true }
+        });
+        if (!currentStudent) {
+            res.status(404).json({ status: "error", message: "Student not found" });
+            return;
+        }
+        if (email) {
+            await prisma_1.prisma.user.update({
+                where: { id: currentStudent.user_id },
+                data: { email: email }
+            });
+        }
+        let orangTuaId = currentStudent.orang_tua_id;
+        if (nama_ortu !== undefined || no_hp_ortu !== undefined || parentEmail !== undefined) {
+            if (orangTuaId) {
+                await prisma_1.prisma.orangTua.update({
+                    where: { id: orangTuaId },
+                    data: {
+                        nama_lengkap: nama_ortu !== undefined ? nama_ortu : currentStudent.orang_tua?.nama_lengkap,
+                        no_hp: no_hp_ortu !== undefined ? no_hp_ortu : currentStudent.orang_tua?.no_hp,
+                        email: parentEmail !== undefined ? parentEmail : currentStudent.orang_tua?.email
+                    }
+                });
+            }
+            else if (nama_ortu) {
+                const newOrangTua = await prisma_1.prisma.orangTua.create({
+                    data: {
+                        nama_lengkap: nama_ortu,
+                        no_hp: no_hp_ortu || null,
+                        email: parentEmail || null
+                    }
+                });
+                orangTuaId = newOrangTua.id;
+            }
+        }
         const updatedStudent = await prisma_1.prisma.student.update({
             where: { id: String(id) },
             data: {
                 nisn: nisn ?? undefined,
                 nama_lengkap: nama_lengkap ?? undefined,
                 kelas: kelas ?? undefined,
-                jurusan: jurusan ?? undefined
+                jurusan: jurusan ?? undefined,
+                angkatan: angkatan ?? undefined,
+                no_hp: no_hp ?? undefined,
+                alamat: alamat ?? undefined,
+                email_beasiswa: email_beasiswa !== undefined ? (email_beasiswa || null) : undefined,
+                email_orang_tua: parentEmail ?? undefined,
+                orang_tua_id: orangTuaId
+            },
+            include: {
+                user: { select: { email: true, role: true } },
+                orang_tua: true
             }
         });
-        res.status(200).json({ status: "success", message: "Student updated", data: updatedStudent });
+        res.status(200).json({ status: "success", message: "Student updated successfully", data: updatedStudent });
     }
     catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
@@ -106,9 +153,6 @@ const deleteStudent = async (req, res) => {
     }
 };
 exports.deleteStudent = deleteStudent;
-/**
- * Get student dashboard (personal statistics)
- */
 const getStudentDashboard = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -168,9 +212,6 @@ const getStudentDashboard = async (req, res) => {
     }
 };
 exports.getStudentDashboard = getStudentDashboard;
-/**
- * Get invoices summary by student
- */
 const getStudentInvoiceSummary = async (req, res) => {
     try {
         const userId = req.user?.id;

@@ -23,8 +23,7 @@ const verifyToken = (req, res, next) => {
             id: decoded.id,
             role: decoded.role
         };
-        // Capture IP dan user agent untuk audit
-        req.ipAddress = (req.ip || req.connection.remoteAddress);
+        req.ipAddress = (req.ip || req.socket?.remoteAddress || req.headers['x-forwarded-for']);
         req.userAgent = req.get('user-agent');
         next();
     }

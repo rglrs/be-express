@@ -3,13 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFinancialSummary = exports.deleteInvoice = exports.updateInvoice = exports.getInvoicesByStudent = exports.getInvoiceById = exports.midtransCallback = exports.createMassInvoice = exports.createInvoice = exports.getAllInvoices = exports.payInvoice = void 0;
+exports.adminPayInvoice = exports.verifyManualTransaction = exports.getPendingManualTransactions = exports.payInvoiceManual = exports.getFinancialSummary = exports.deleteInvoice = exports.updateInvoice = exports.getInvoicesByStudent = exports.getInvoiceById = exports.midtransCallback = exports.createMassInvoice = exports.createInvoice = exports.getAllInvoices = exports.payPaket = exports.payInvoice = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const midtrans_1 = require("../utils/midtrans");
 const prisma_1 = require("../utils/prisma");
+const email_controller_1 = require("./email.controller");
 const payInvoice = async (req, res) => {
     try {
-        const id = req.params['id'];
+        const id = req.params.id;
         const userId = req.user?.id;
         const invoice = await prisma_1.prisma.invoice.findUnique({
             where: { id },
@@ -23,7 +24,8 @@ const payInvoice = async (req, res) => {
             res.status(404).json({ status: "error", message: "Invoice not found" });
             return;
         }
-        if (req.user?.role !== 'ADMIN' && invoice.student.user_id !== userId) {
+        const invoiceWithRelations = invoice;
+        if (req.user?.role !== 'ADMIN' && invoiceWithRelations.student.user_id !== userId) {
             res.status(403).json({ status: "error", message: "Forbidden: You do not own this invoice" });
             return;
         }
@@ -32,14 +34,14 @@ const payInvoice = async (req, res) => {
             return;
         }
         const orderId = `${invoice.id}-${Date.now()}`;
-        const email = invoice.student.user.email;
+        const email = invoiceWithRelations.student.email_beasiswa || invoiceWithRelations.student.user.email;
         const parameter = {
             transaction_details: {
                 order_id: orderId,
                 gross_amount: invoice.nominal
             },
             customer_details: {
-                first_name: invoice.student.nama_lengkap,
+                first_name: invoiceWithRelations.student.nama_lengkap,
                 email
             }
         };
@@ -47,8 +49,8 @@ const payInvoice = async (req, res) => {
         await prisma_1.prisma.transaction.create({
             data: {
                 invoice_id: invoice.id,
-                order_id_midtrans: orderId,
-                snap_token: transaction.token
+                order_id_midtrans: orderId ?? null,
+                snap_token: transaction.token ?? null
             }
         });
         res.json({ status: "success", data: { token: transaction.token } });
@@ -58,6 +60,61 @@ const payInvoice = async (req, res) => {
     }
 };
 exports.payInvoice = payInvoice;
+const payPaket = async (req, res) => {
+    try {
+        const { jumlahBulan } = req.body;
+        const userId = req.user?.id;
+        const student = await prisma_1.prisma.student.findUnique({
+            where: { user_id: userId ?? '' },
+            include: { user: true }
+        });
+        if (!student) {
+            res.status(404).json({ status: "error", message: "Student not found" });
+            return;
+        }
+        if (!jumlahBulan || typeof jumlahBulan !== 'number' || jumlahBulan < 1) {
+            res.status(400).json({ status: "error", message: "Invalid jumlah bulan" });
+            return;
+        }
+        const nominal = jumlahBulan * 250000;
+        const judul = `Paket Pembayaran SPP ${jumlahBulan} Bulan`;
+        const invoice = await prisma_1.prisma.invoice.create({
+            data: {
+                student_id: student.id,
+                judul_tagihan: judul,
+                jenis_tagihan: 'SPP',
+                nominal: nominal,
+                tahun: new Date().getFullYear(),
+                status: 'PENDING'
+            }
+        });
+        const orderId = `${invoice.id}-${Date.now()}`;
+        const email = student.email_beasiswa || student.user.email;
+        const parameter = {
+            transaction_details: {
+                order_id: orderId,
+                gross_amount: invoice.nominal
+            },
+            customer_details: {
+                first_name: student.nama_lengkap,
+                email
+            }
+        };
+        const transaction = await midtrans_1.snap.createTransaction(parameter);
+        await prisma_1.prisma.transaction.create({
+            data: {
+                invoice_id: invoice.id,
+                order_id_midtrans: orderId,
+                snap_token: transaction.token ?? null
+            }
+        });
+        res.json({ status: "success", data: { token: transaction.token } });
+    }
+    catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+exports.payPaket = payPaket;
 const getAllInvoices = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -67,7 +124,7 @@ const getAllInvoices = async (req, res) => {
             : { student: { user_id: userId ?? '' } };
         const invoices = await prisma_1.prisma.invoice.findMany({
             where,
-            include: { student: true }
+            include: { student: true, transactions: true }
         });
         res.json({ status: "success", data: invoices });
     }
@@ -78,18 +135,20 @@ const getAllInvoices = async (req, res) => {
 exports.getAllInvoices = getAllInvoices;
 const createInvoice = async (req, res) => {
     try {
-        const { student_id, judul_tagihan, jenis_tagihan, bulan, nominal, tahun } = req.body;
+        const { student_id, judul_tagihan, jenis_tagihan, bulan, nominal, tahun, tanggal_jatuh_tempo } = req.body;
         const invoice = await prisma_1.prisma.invoice.create({
             data: {
                 student_id,
                 judul_tagihan,
                 jenis_tagihan: jenis_tagihan || 'LAINNYA',
-                bulan,
+                bulan: bulan ?? null,
                 nominal: parseInt(nominal),
-                tahun: tahun || new Date().getFullYear(),
-                status: 'PENDING'
+                tahun: parseInt(tahun) || new Date().getFullYear(),
+                status: 'PENDING',
+                tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
             }
         });
+        (0, email_controller_1.kirimEmailTagihanBaru)(invoice.id).catch(console.error);
         res.status(201).json({ status: "success", data: invoice });
     }
     catch (error) {
@@ -99,26 +158,29 @@ const createInvoice = async (req, res) => {
 exports.createInvoice = createInvoice;
 const createMassInvoice = async (req, res) => {
     try {
-        const { targetKelas, judul_tagihan, jenis_tagihan, bulan, nominal, tahun } = req.body;
+        const { targetKelas, judul_tagihan, jenis_tagihan, bulan, nominal, tahun, tanggal_jatuh_tempo } = req.body;
         const whereClause = targetKelas === 'Semua' ? {} : { kelas: { startsWith: targetKelas } };
         const students = await prisma_1.prisma.student.findMany({ where: whereClause });
         if (students.length === 0) {
             res.status(404).json({ status: "error", message: "Tidak ada siswa di kelas tersebut" });
             return;
         }
-        const invoiceData = students.map(student => ({
-            student_id: student.id,
-            judul_tagihan,
-            jenis_tagihan: jenis_tagihan || 'LAINNYA',
-            bulan,
-            nominal: parseInt(nominal),
-            tahun: tahun || new Date().getFullYear(),
-            status: 'PENDING'
-        }));
-        await prisma_1.prisma.invoice.createMany({
-            data: invoiceData
+        const invoicesCreated = await Promise.all(students.map(student => prisma_1.prisma.invoice.create({
+            data: {
+                student_id: student.id,
+                judul_tagihan: judul_tagihan,
+                jenis_tagihan: jenis_tagihan || 'LAINNYA',
+                bulan: bulan ?? null,
+                nominal: parseInt(nominal),
+                tahun: parseInt(tahun) || new Date().getFullYear(),
+                status: 'PENDING',
+                tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
+            }
+        })));
+        invoicesCreated.forEach(inv => {
+            (0, email_controller_1.kirimEmailTagihanBaru)(inv.id).catch(console.error);
         });
-        res.status(201).json({ status: "success", message: `Berhasil membuat ${invoiceData.length} tagihan` });
+        res.status(201).json({ status: "success", message: `Berhasil membuat ${invoicesCreated.length} tagihan` });
     }
     catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
@@ -143,6 +205,11 @@ const midtransCallback = async (req, res) => {
                     where: { id: transaction.invoice_id },
                     data: { status: 'PAID', tanggal_lunas: new Date() }
                 });
+                const updatedTx = await prisma_1.prisma.transaction.update({
+                    where: { id: transaction.id },
+                    data: { status: 'SUCCESS' }
+                });
+                (0, email_controller_1.kirimEmailPembayaranSukses)(updatedTx.id).catch(console.error);
             }
         }
         res.status(200).json({ status: "success" });
@@ -152,12 +219,9 @@ const midtransCallback = async (req, res) => {
     }
 };
 exports.midtransCallback = midtransCallback;
-/**
- * Get invoice by ID
- */
 const getInvoiceById = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const userId = req.user?.id;
         const invoice = await prisma_1.prisma.invoice.findUnique({
             where: { id },
@@ -173,8 +237,8 @@ const getInvoiceById = async (req, res) => {
             res.status(404).json({ status: "error", message: "Invoice not found" });
             return;
         }
-        // Authorization check: student can only see their own invoices
-        if (req.user?.role !== 'ADMIN' && invoice.student.user_id !== userId) {
+        const invoiceWithRelations = invoice;
+        if (req.user?.role !== 'ADMIN' && invoiceWithRelations.student.user_id !== userId) {
             res.status(403).json({ status: "error", message: "Forbidden: You don't have access to this invoice" });
             return;
         }
@@ -188,12 +252,9 @@ const getInvoiceById = async (req, res) => {
     }
 };
 exports.getInvoiceById = getInvoiceById;
-/**
- * Get invoices by student
- */
 const getInvoicesByStudent = async (req, res) => {
     try {
-        const { student_id } = req.params;
+        const student_id = req.params.student_id;
         const page = typeof req.query.page === 'string' ? parseInt(req.query.page) : 1;
         const limit = typeof req.query.limit === 'string' ? parseInt(req.query.limit) : 10;
         const skip = (page - 1) * limit;
@@ -230,19 +291,15 @@ const getInvoicesByStudent = async (req, res) => {
     }
 };
 exports.getInvoicesByStudent = getInvoicesByStudent;
-/**
- * Update invoice
- */
 const updateInvoice = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const { judul_tagihan, nominal, tanggal_jatuh_tempo } = req.body;
         const invoice = await prisma_1.prisma.invoice.findUnique({ where: { id } });
         if (!invoice) {
             res.status(404).json({ status: "error", message: "Invoice not found" });
             return;
         }
-        // Can only update if status is PENDING
         if (invoice.status !== 'PENDING') {
             res.status(400).json({
                 status: "error",
@@ -255,7 +312,7 @@ const updateInvoice = async (req, res) => {
             data: {
                 judul_tagihan: judul_tagihan ?? invoice.judul_tagihan,
                 nominal: nominal ? parseInt(nominal) : invoice.nominal,
-                tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : invoice.tanggal_jatuh_tempo
+                tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : (invoice.tanggal_jatuh_tempo ?? null)
             }
         });
         res.status(200).json({
@@ -269,18 +326,14 @@ const updateInvoice = async (req, res) => {
     }
 };
 exports.updateInvoice = updateInvoice;
-/**
- * Delete invoice
- */
 const deleteInvoice = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const invoice = await prisma_1.prisma.invoice.findUnique({ where: { id } });
         if (!invoice) {
             res.status(404).json({ status: "error", message: "Invoice not found" });
             return;
         }
-        // Can only delete if status is PENDING
         if (invoice.status !== 'PENDING') {
             res.status(400).json({
                 status: "error",
@@ -288,7 +341,7 @@ const deleteInvoice = async (req, res) => {
             });
             return;
         }
-        await prisma_1.prisma.invoice.delete({ where: { id: id } });
+        await prisma_1.prisma.invoice.delete({ where: { id } });
         res.status(200).json({
             status: "success",
             message: "Invoice deleted successfully"
@@ -299,43 +352,25 @@ const deleteInvoice = async (req, res) => {
     }
 };
 exports.deleteInvoice = deleteInvoice;
-/**
- * Get financial summary
- */
 const getFinancialSummary = async (req, res) => {
     try {
         const month = typeof req.query.month === 'string' ? parseInt(req.query.month) : new Date().getMonth() + 1;
         const year = typeof req.query.year === 'string' ? parseInt(req.query.year) : new Date().getFullYear();
         const [totalInvoices, paidInvoices, overdueInvoices, pendingInvoices] = await Promise.all([
             prisma_1.prisma.invoice.aggregate({
-                where: {
-                    tahun: year,
-                    bulan: month.toString()
-                },
+                where: { tahun: year, bulan: month.toString() },
                 _sum: { nominal: true }
             }),
             prisma_1.prisma.invoice.aggregate({
-                where: {
-                    status: 'PAID',
-                    tahun: year,
-                    bulan: month.toString()
-                },
+                where: { status: 'PAID', tahun: year, bulan: month.toString() },
                 _sum: { nominal: true }
             }),
             prisma_1.prisma.invoice.aggregate({
-                where: {
-                    status: 'OVERDUE',
-                    tahun: year,
-                    bulan: month.toString()
-                },
+                where: { status: 'OVERDUE', tahun: year, bulan: month.toString() },
                 _sum: { nominal: true }
             }),
             prisma_1.prisma.invoice.aggregate({
-                where: {
-                    status: 'PENDING',
-                    tahun: year,
-                    bulan: month.toString()
-                },
+                where: { status: 'PENDING', tahun: year, bulan: month.toString() },
                 _sum: { nominal: true }
             })
         ]);
@@ -356,4 +391,148 @@ const getFinancialSummary = async (req, res) => {
     }
 };
 exports.getFinancialSummary = getFinancialSummary;
+const payInvoiceManual = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const userId = req.user?.id;
+        const { bukti_transfer_url } = req.body;
+        const invoice = await prisma_1.prisma.invoice.findUnique({
+            where: { id },
+            include: { student: true }
+        });
+        if (!invoice) {
+            res.status(404).json({ status: "error", message: "Invoice not found" });
+            return;
+        }
+        const invoiceWithRelations = invoice;
+        if (req.user?.role !== 'ADMIN' && invoiceWithRelations.student.user_id !== userId) {
+            res.status(403).json({ status: "error", message: "Forbidden" });
+            return;
+        }
+        if (invoice.status === 'PAID') {
+            res.status(400).json({ status: "error", message: "Invoice is already paid" });
+            return;
+        }
+        await prisma_1.prisma.transaction.create({
+            data: {
+                invoice_id: id,
+                metode_bayar: 'MANUAL',
+                jumlah_bayar: invoice.nominal,
+                bukti_transfer_url: bukti_transfer_url ?? null,
+                status: 'PENDING'
+            }
+        });
+        res.json({ status: "success", message: "Kwitansi berhasil diunggah." });
+    }
+    catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+exports.payInvoiceManual = payInvoiceManual;
+const getPendingManualTransactions = async (req, res) => {
+    try {
+        const transactions = await prisma_1.prisma.transaction.findMany({
+            where: {
+                metode_bayar: 'MANUAL',
+                status: 'PENDING'
+            },
+            include: {
+                invoice: {
+                    include: { student: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json({ status: "success", data: transactions });
+    }
+    catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+exports.getPendingManualTransactions = getPendingManualTransactions;
+const verifyManualTransaction = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const { action } = req.body;
+        const adminId = req.user?.id;
+        const transaction = await prisma_1.prisma.transaction.findUnique({
+            where: { id },
+            include: { invoice: true }
+        });
+        if (!transaction || transaction.metode_bayar !== 'MANUAL') {
+            res.status(404).json({ status: "error", message: "Transaction not found" });
+            return;
+        }
+        if (action === 'accept') {
+            const result = await prisma_1.prisma.$transaction(async (tx) => {
+                const updatedTx = await tx.transaction.update({
+                    where: { id },
+                    data: { status: 'SUCCESS', verified_at: new Date(), verified_by: adminId ?? null }
+                });
+                await tx.invoice.update({
+                    where: { id: transaction.invoice_id },
+                    data: { status: 'PAID', tanggal_lunas: new Date() }
+                });
+                return updatedTx;
+            });
+            (0, email_controller_1.kirimEmailPembayaranSukses)(result.id).catch(console.error);
+            res.json({ status: "success", message: "Pembayaran diverifikasi." });
+        }
+        else {
+            await prisma_1.prisma.transaction.update({
+                where: { id },
+                data: { status: 'FAILED', verified_at: new Date(), verified_by: adminId ?? null }
+            });
+            res.json({ status: "success", message: "Pembayaran ditolak." });
+        }
+    }
+    catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+exports.verifyManualTransaction = verifyManualTransaction;
+const adminPayInvoice = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const adminId = req.user?.id;
+        const invoice = await prisma_1.prisma.invoice.findUnique({
+            where: { id }
+        });
+        if (!invoice) {
+            res.status(404).json({ status: "error", message: "Invoice not found" });
+            return;
+        }
+        if (invoice.status === 'PAID') {
+            res.status(400).json({ status: "error", message: "Invoice is already paid" });
+            return;
+        }
+        const result = await prisma_1.prisma.$transaction(async (tx) => {
+            const updatedInvoice = await tx.invoice.update({
+                where: { id },
+                data: { status: 'PAID', tanggal_lunas: new Date() }
+            });
+            const transaction = await tx.transaction.create({
+                data: {
+                    invoice_id: id,
+                    metode_bayar: 'BEASISWA_INTERNAL',
+                    jumlah_bayar: invoice.nominal,
+                    status: 'SUCCESS',
+                    verified_at: new Date(),
+                    verified_by: adminId ?? null
+                }
+            });
+            return transaction;
+        });
+        (0, email_controller_1.kirimEmailPembayaranSukses)(result.id).catch(console.error);
+        res.status(200).json({
+            status: "success",
+            message: "Invoice berhasil dilunasi oleh Admin (Beasiswa Internal)",
+            data: result
+        });
+    }
+    catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+exports.adminPayInvoice = adminPayInvoice;
 //# sourceMappingURL=invoice.controller.js.map

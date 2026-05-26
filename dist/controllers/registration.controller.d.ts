@@ -6,4 +6,5 @@ export declare const acceptRegistration: (req: AuthRequest, res: Response) => Pr
 export declare const rejectRegistration: (req: AuthRequest, res: Response) => Promise<void>;
 export declare const createRegistration: (req: Request, res: Response) => Promise<void>;
 export declare const updateRegistration: (req: Request, res: Response) => Promise<void>;
+export declare const checkRegistrationStatus: (req: Request, res: Response) => Promise<void>;
 //# sourceMappingURL=registration.controller.d.ts.map

@@ -130,6 +130,24 @@ const getDashboardStats = async (req, res) => {
             where: { status: { in: ['PENDING', 'OVERDUE'] } },
             _sum: { nominal: true }
         });
+        const currentYear = new Date().getFullYear();
+        const paidInvoicesThisYear = await prisma_1.prisma.invoice.findMany({
+            where: {
+                status: 'PAID',
+                tanggal_lunas: {
+                    gte: new Date(`${currentYear}-01-01T00:00:00.000Z`),
+                    lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+                }
+            },
+            select: { nominal: true, tanggal_lunas: true }
+        });
+        const monthly_revenue = Array(12).fill(0);
+        paidInvoicesThisYear.forEach(inv => {
+            if (inv.tanggal_lunas) {
+                const month = inv.tanggal_lunas.getMonth();
+                monthly_revenue[month] += inv.nominal;
+            }
+        });
         res.status(200).json({
             status: "success",
             data: {
@@ -143,7 +161,8 @@ const getDashboardStats = async (req, res) => {
                     overdue: overdueInvoices,
                     total_nominal: totalTagihan._sum.nominal || 0,
                     total_paid: totalRevenue._sum.nominal || 0,
-                    total_unpaid: tunggakan._sum.nominal || 0
+                    total_unpaid: tunggakan._sum.nominal || 0,
+                    monthly_revenue
                 },
                 registrations: {
                     pending: registrationsPending,

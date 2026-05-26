@@ -4,12 +4,6 @@ export declare const getStudents: (req: Request, res: Response) => Promise<void>
 export declare const getStudentById: (req: AuthRequest, res: Response) => Promise<void>;
 export declare const updateStudent: (req: AuthRequest, res: Response) => Promise<void>;
 export declare const deleteStudent: (req: AuthRequest, res: Response) => Promise<void>;
-/**
- * Get student dashboard (personal statistics)
- */
 export declare const getStudentDashboard: (req: AuthRequest, res: Response) => Promise<void>;
-/**
- * Get invoices summary by student
- */
 export declare const getStudentInvoiceSummary: (req: AuthRequest, res: Response) => Promise<void>;
 //# sourceMappingURL=student.controller.d.ts.map
