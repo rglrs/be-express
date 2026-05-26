@@ -78,11 +78,12 @@ model Student {
   user_id         String        @unique
   nisn            String        @unique
   email_orang_tua String?
+  email_beasiswa  String?
   nama_lengkap    String
   kelas           String
   jurusan         String?
   angkatan        String?
-  no_hp           String?       
+  no_hp           String?
   alamat          String?       
   orang_tua_id    String?
   status          StudentStatus @default(AKTIF)
@@ -148,7 +149,10 @@ model Registration {
   nama_lengkap   String
   nisn           String             @unique
   email          String             @unique
-  no_hp          String?            
+  email_orang_tua String?
+  email_beasiswa String?
+  password       String?
+  no_hp          String?
   alamat         String?
   jurusan        String
   nama_orang_tua String

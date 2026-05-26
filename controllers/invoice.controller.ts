@@ -4,6 +4,7 @@ import { snap } from '../utils/midtrans';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { Prisma } from '../generated/prisma/client';
+import { kirimEmailTagihanBaru, kirimEmailPembayaranSukses } from './email.controller';
 
 export const payInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -37,7 +38,7 @@ export const payInvoice = async (req: AuthRequest, res: Response): Promise<void>
         }
 
         const orderId = `${invoice.id}-${Date.now()}`;
-        const email = invoiceWithRelations.student.user.email as string;
+        const email = invoiceWithRelations.student.email_beasiswa || invoiceWithRelations.student.user.email as string;
 
         const parameter = {
             transaction_details: {
@@ -68,7 +69,7 @@ export const payInvoice = async (req: AuthRequest, res: Response): Promise<void>
 
 export const payPaket = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { paket } = req.body;
+        const { jumlahBulan } = req.body;
         const userId = req.user?.id;
 
         const student = await prisma.student.findUnique({
@@ -81,22 +82,13 @@ export const payPaket = async (req: AuthRequest, res: Response): Promise<void> =
             return;
         }
 
-        let nominal = 0;
-        let judul = '';
-
-        if (paket === 'SEMESTER') {
-            nominal = 1500000;
-            judul = 'Paket Pelunasan SPP 1 Semester';
-        } else if (paket === 'TAHUN') {
-            nominal = 3000000;
-            judul = 'Paket Pelunasan SPP 1 Tahun';
-        } else if (paket === 'LULUS') {
-            nominal = 9000000;
-            judul = 'Paket Pelunasan SPP Sampai Lulus';
-        } else {
-            res.status(400).json({ status: "error", message: "Invalid package type" });
+        if (!jumlahBulan || typeof jumlahBulan !== 'number' || jumlahBulan < 1) {
+            res.status(400).json({ status: "error", message: "Invalid jumlah bulan" });
             return;
         }
+
+        const nominal = jumlahBulan * 250000;
+        const judul = `Paket Pembayaran SPP ${jumlahBulan} Bulan`;
 
         const invoice = await prisma.invoice.create({
             data: {
@@ -110,7 +102,7 @@ export const payPaket = async (req: AuthRequest, res: Response): Promise<void> =
         });
 
         const orderId = `${invoice.id}-${Date.now()}`;
-        const email = student.user.email as string;
+        const email = student.email_beasiswa || student.user.email as string;
 
         const parameter = {
             transaction_details: {
@@ -176,6 +168,8 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
             }
         });
 
+        kirimEmailTagihanBaru(invoice.id).catch(console.error);
+
         res.status(201).json({ status: "success", data: invoice });
     } catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
@@ -194,22 +188,28 @@ export const createMassInvoice = async (req: AuthRequest, res: Response): Promis
             return;
         }
 
-        const invoiceData = students.map(student => ({
-            student_id: student.id,
-            judul_tagihan: judul_tagihan as string,
-            jenis_tagihan: jenis_tagihan || 'LAINNYA',
-            bulan: bulan ?? null,
-            nominal: parseInt(nominal),
-            tahun: parseInt(tahun) || new Date().getFullYear(),
-            status: 'PENDING' as const,
-            tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
-        }));
+        const invoicesCreated = await Promise.all(
+            students.map(student => 
+                prisma.invoice.create({
+                    data: {
+                        student_id: student.id,
+                        judul_tagihan: judul_tagihan as string,
+                        jenis_tagihan: jenis_tagihan || 'LAINNYA',
+                        bulan: bulan ?? null,
+                        nominal: parseInt(nominal),
+                        tahun: parseInt(tahun) || new Date().getFullYear(),
+                        status: 'PENDING',
+                        tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
+                    }
+                })
+            )
+        );
 
-        await prisma.invoice.createMany({
-            data: invoiceData
+        invoicesCreated.forEach(inv => {
+            kirimEmailTagihanBaru(inv.id).catch(console.error);
         });
 
-        res.status(201).json({ status: "success", message: `Berhasil membuat ${invoiceData.length} tagihan` });
+        res.status(201).json({ status: "success", message: `Berhasil membuat ${invoicesCreated.length} tagihan` });
     } catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
     }
@@ -238,10 +238,13 @@ export const midtransCallback = async (req: Request, res: Response): Promise<voi
                     where: { id: transaction.invoice_id },
                     data: { status: 'PAID', tanggal_lunas: new Date() }
                 });
-                await prisma.transaction.update({
+                
+                const updatedTx = await prisma.transaction.update({
                     where: { id: transaction.id },
                     data: { status: 'SUCCESS' }
                 });
+
+                kirimEmailPembayaranSukses(updatedTx.id).catch(console.error);
             }
         }
 
@@ -478,7 +481,7 @@ export const payInvoiceManual = async (req: AuthRequest, res: Response): Promise
             }
         });
 
-        res.json({ status: "success", message: "Bukti transfer berhasil diunggah." });
+        res.json({ status: "success", message: "Kwitansi berhasil diunggah." });
     } catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
     }
@@ -521,8 +524,8 @@ export const verifyManualTransaction = async (req: AuthRequest, res: Response): 
         }
 
         if (action === 'accept') {
-            await prisma.$transaction(async (tx) => {
-                await tx.transaction.update({
+            const result = await prisma.$transaction(async (tx) => {
+                const updatedTx = await tx.transaction.update({
                     where: { id },
                     data: { status: 'SUCCESS', verified_at: new Date(), verified_by: adminId ?? null }
                 });
@@ -530,7 +533,11 @@ export const verifyManualTransaction = async (req: AuthRequest, res: Response): 
                     where: { id: transaction.invoice_id },
                     data: { status: 'PAID', tanggal_lunas: new Date() }
                 });
+                return updatedTx;
             });
+            
+            kirimEmailPembayaranSukses(result.id).catch(console.error);
+
             res.json({ status: "success", message: "Pembayaran diverifikasi." });
         } else {
             await prisma.transaction.update({
@@ -539,6 +546,57 @@ export const verifyManualTransaction = async (req: AuthRequest, res: Response): 
             });
             res.json({ status: "success", message: "Pembayaran ditolak." });
         }
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "Internal server error" });
+    }
+};
+
+export const adminPayInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const id = req.params.id as string;
+        const adminId = req.user?.id;
+
+        const invoice = await prisma.invoice.findUnique({
+            where: { id }
+        });
+
+        if (!invoice) {
+            res.status(404).json({ status: "error", message: "Invoice not found" });
+            return;
+        }
+
+        if (invoice.status === 'PAID') {
+            res.status(400).json({ status: "error", message: "Invoice is already paid" });
+            return;
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            const updatedInvoice = await tx.invoice.update({
+                where: { id },
+                data: { status: 'PAID', tanggal_lunas: new Date() }
+            });
+
+            const transaction = await tx.transaction.create({
+                data: {
+                    invoice_id: id,
+                    metode_bayar: 'BEASISWA_INTERNAL',
+                    jumlah_bayar: invoice.nominal,
+                    status: 'SUCCESS',
+                    verified_at: new Date(),
+                    verified_by: adminId ?? null
+                }
+            });
+
+            return transaction;
+        });
+
+        kirimEmailPembayaranSukses(result.id).catch(console.error);
+
+        res.status(200).json({
+            status: "success",
+            message: "Invoice berhasil dilunasi oleh Admin (Beasiswa Internal)",
+            data: result
+        });
     } catch (error) {
         res.status(500).json({ status: "error", message: "Internal server error" });
     }

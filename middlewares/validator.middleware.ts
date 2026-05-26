@@ -2,13 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 
 const registerSchema = z.object({
-    email: z.string().email("Invalid email format"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    nisn: z.string().min(5, "NISN must be at least 5 characters"),
-    nama_lengkap: z.string().min(3, "Name must be at least 3 characters"),
-    kelas: z.string().min(2, "Class is required"),
-    jurusan: z.string().optional(),
-    angkatan: z.string().optional()
+    email: z.string().email(),
+    password: z.string().min(6),
+    nisn: z.string().min(5),
+    nama_lengkap: z.string().min(3),
+    kelas: z.string().min(2),
+    jurusan: z.string().min(2),
+    angkatan: z.string().min(4)
 });
 
 const studentUpdateSchema = z.object({
@@ -20,45 +20,46 @@ const studentUpdateSchema = z.object({
 });
 
 const blockStudentSchema = z.object({
-    alasan_blokir: z.string().min(3, "Reason must be at least 3 characters").optional()
+    alasan_blokir: z.string().min(3).optional()
 });
 
 const invoiceSchema = z.object({
-    student_id: z.string().uuid("Invalid student ID"),
-    judul_tagihan: z.string().min(3, "Invoice title must be at least 3 characters"),
+    student_id: z.string().uuid(),
+    judul_tagihan: z.string().min(3),
     jenis_tagihan: z.enum(['SPP', 'DU', 'BUKU', 'SERAGAM', 'LAINNYA']).optional(),
     bulan: z.string().optional(),
     tahun: z.number().int().optional(),
-    nominal: z.number().int().positive("Nominal must be positive"),
+    nominal: z.number().int().positive(),
     tanggal_jatuh_tempo: z.string().datetime().optional()
 });
 
 const massInvoiceSchema = z.object({
-    targetKelas: z.string().min(1, "Target kelas is required"),
-    judul_tagihan: z.string().min(3, "Invoice title must be at least 3 characters"),
+    targetKelas: z.string().min(1),
+    judul_tagihan: z.string().min(3),
     jenis_tagihan: z.enum(['SPP', 'DU', 'BUKU', 'SERAGAM', 'LAINNYA']).optional(),
     bulan: z.string().optional(),
     tahun: z.number().int().optional(),
-    nominal: z.number().int().positive("Nominal must be positive"),
+    nominal: z.number().int().positive(),
     tanggal_jatuh_tempo: z.string().datetime().optional()
 });
 
 const registrationSchema = z.object({
-    nama_lengkap: z.string().min(3, "Name must be at least 3 characters"),
-    nisn: z.string().min(10, "NISN must be at least 10 characters"),
-    email: z.string().email("Invalid email format"),
-    jurusan: z.string().min(2, "Jurusan is required"),
-    nama_orang_tua: z.string().min(3).optional(),
-    hp_orang_tua: z.string().optional(),
-    berkas_url: z.array(z.string()).optional()
-});
-
-const acceptRegistrationSchema = z.object({
-    password: z.string().min(6, "Password must be at least 6 characters")
+    nama_lengkap: z.string().trim().min(3, "Nama lengkap minimal 3 karakter"),
+    nisn: z.string().trim().min(10, "NISN harus 10 digit"),
+    email: z.string().trim().email("Format email tidak valid"),
+    email_beasiswa: z.string().trim().email("Format email beasiswa tidak valid").optional().or(z.literal('')),
+    password: z.string().min(6, "Password minimal 6 karakter"),
+    jurusan: z.string().trim().min(2, "Jurusan wajib dipilih"),
+    no_hp: z.string().trim().min(10, "Nomor HP minimal 10 digit"),
+    alamat: z.string().trim().min(5, "Alamat wajib diisi"),
+    nama_orang_tua: z.string().trim().min(3, "Nama orang tua wajib diisi"),
+    email_orang_tua: z.string().trim().email("Format email orang tua tidak valid"),
+    hp_orang_tua: z.string().trim().min(10, "Nomor HP orang tua minimal 10 digit"),
+    berkas_url: z.array(z.string()).min(1, "Minimal 1 berkas wajib diupload")
 });
 
 const rejectRegistrationSchema = z.object({
-    alasan: z.string().min(3, "Reason must be at least 3 characters")
+    alasan: z.string().min(3)
 });
 
 const updateStudentStatusSchema = z.object({
@@ -122,15 +123,6 @@ export const validateMassInvoice = (req: Request, res: Response, next: NextFunct
 
 export const validateRegistration = (req: Request, res: Response, next: NextFunction): void => {
     const result = registrationSchema.safeParse(req.body);
-    if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
-        return;
-    }
-    next();
-};
-
-export const validateAcceptRegistration = (req: Request, res: Response, next: NextFunction): void => {
-    const result = acceptRegistrationSchema.safeParse(req.body);
     if (!result.success) {
         res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
         return;

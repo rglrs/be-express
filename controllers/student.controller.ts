@@ -81,7 +81,7 @@ export const updateStudent = async (req: AuthRequest, res: Response): Promise<vo
         const { id } = req.params;
         const { 
             nisn, nama_lengkap, kelas, jurusan, angkatan, 
-            email, no_hp, alamat, nama_ortu, no_hp_ortu,
+            email, email_beasiswa, no_hp, alamat, nama_ortu, no_hp_ortu,
             email_orang_tua, email_ortu
         } = req.body;
         
@@ -138,6 +138,7 @@ export const updateStudent = async (req: AuthRequest, res: Response): Promise<vo
                 angkatan: angkatan ?? undefined,
                 no_hp: no_hp ?? undefined,
                 alamat: alamat ?? undefined,
+                email_beasiswa: email_beasiswa !== undefined ? (email_beasiswa || null) : undefined,
                 email_orang_tua: parentEmail ?? undefined,
                 orang_tua_id: orangTuaId
             },

@@ -8,7 +8,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     try {
         const { 
             email, password, nisn, nama_lengkap, kelas, jurusan, angkatan, 
-            no_hp, alamat, nama_orang_tua, email_orang_tua, hp_orang_tua 
+            no_hp, alamat, nama_orang_tua, email_orang_tua, hp_orang_tua, email_beasiswa 
         } = req.body;
         
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -52,6 +52,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                     no_hp: no_hp || null,
                     alamat: alamat || null,
                     email_orang_tua: email_orang_tua || null,
+                    email_beasiswa: email_beasiswa || null,
                     orang_tua_id: orangTuaId
                 }
             });
