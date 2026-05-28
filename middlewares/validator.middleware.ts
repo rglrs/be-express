@@ -2,45 +2,45 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 
 const registerSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(6),
-    nisn: z.string().min(5),
-    nama_lengkap: z.string().min(3),
-    kelas: z.string().min(2),
-    jurusan: z.string().min(2),
-    angkatan: z.string().min(4)
+    email: z.string().email("Format email tidak valid"),
+    password: z.string().min(8, "Password minimal 8 karakter"),
+    nisn: z.string().min(5, "NISN minimal 5 karakter"),
+    nama_lengkap: z.string().min(3, "Nama lengkap minimal 3 karakter"),
+    kelas: z.string().min(2, "Kelas minimal 2 karakter"),
+    jurusan: z.string().min(2, "Jurusan minimal 2 karakter"),
+    angkatan: z.string().min(4, "Angkatan minimal 4 karakter")
 });
 
 const studentUpdateSchema = z.object({
-    nisn: z.string().min(5).optional(),
-    nama_lengkap: z.string().min(3).optional(),
-    kelas: z.string().min(2).optional(),
+    nisn: z.string().min(5, "NISN minimal 5 karakter").optional(),
+    nama_lengkap: z.string().min(3, "Nama lengkap minimal 3 karakter").optional(),
+    kelas: z.string().min(2, "Kelas minimal 2 karakter").optional(),
     jurusan: z.string().optional(),
     angkatan: z.string().optional()
 });
 
 const blockStudentSchema = z.object({
-    alasan_blokir: z.string().min(3).optional()
+    alasan_blokir: z.string().min(3, "Alasan blokir minimal 3 karakter").optional()
 });
 
 const invoiceSchema = z.object({
-    student_id: z.string().uuid(),
-    judul_tagihan: z.string().min(3),
+    student_id: z.string().uuid("Format ID siswa tidak valid"),
+    judul_tagihan: z.string().min(3, "Judul tagihan minimal 3 karakter"),
     jenis_tagihan: z.enum(['SPP', 'DU', 'BUKU', 'SERAGAM', 'LAINNYA']).optional(),
     bulan: z.string().optional(),
     tahun: z.number().int().optional(),
-    nominal: z.number().int().positive(),
-    tanggal_jatuh_tempo: z.string().datetime().optional()
+    nominal: z.number().int().positive("Nominal harus positif"),
+    tanggal_jatuh_tempo: z.string().datetime("Format tanggal tidak valid").optional()
 });
 
 const massInvoiceSchema = z.object({
-    targetKelas: z.string().min(1),
-    judul_tagihan: z.string().min(3),
+    targetKelas: z.string().min(1, "Target kelas wajib diisi"),
+    judul_tagihan: z.string().min(3, "Judul tagihan minimal 3 karakter"),
     jenis_tagihan: z.enum(['SPP', 'DU', 'BUKU', 'SERAGAM', 'LAINNYA']).optional(),
     bulan: z.string().optional(),
     tahun: z.number().int().optional(),
-    nominal: z.number().int().positive(),
-    tanggal_jatuh_tempo: z.string().datetime().optional()
+    nominal: z.number().int().positive("Nominal harus positif"),
+    tanggal_jatuh_tempo: z.string().datetime("Format tanggal tidak valid").optional()
 });
 
 const registrationSchema = z.object({
@@ -48,7 +48,7 @@ const registrationSchema = z.object({
     nisn: z.string().trim().min(10, "NISN harus 10 digit"),
     email: z.string().trim().email("Format email tidak valid"),
     email_beasiswa: z.string().trim().email("Format email beasiswa tidak valid").optional().or(z.literal('')),
-    password: z.string().min(6, "Password minimal 6 karakter"),
+    password: z.string().min(8, "Password minimal 8 karakter"),
     jurusan: z.string().trim().min(2, "Jurusan wajib dipilih"),
     no_hp: z.string().trim().min(10, "Nomor HP minimal 10 digit"),
     alamat: z.string().trim().min(5, "Alamat wajib diisi"),
@@ -59,7 +59,7 @@ const registrationSchema = z.object({
 });
 
 const rejectRegistrationSchema = z.object({
-    alasan: z.string().min(3)
+    alasan: z.string().min(3, "Alasan minimal 3 karakter")
 });
 
 const updateStudentStatusSchema = z.object({
@@ -79,7 +79,7 @@ const systemConfigSchema = z.object({
 export const validateRegister = (req: Request, res: Response, next: NextFunction): void => {
     const result = registerSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -88,7 +88,7 @@ export const validateRegister = (req: Request, res: Response, next: NextFunction
 export const validateStudentUpdate = (req: Request, res: Response, next: NextFunction): void => {
     const result = studentUpdateSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -97,7 +97,7 @@ export const validateStudentUpdate = (req: Request, res: Response, next: NextFun
 export const validateBlockStudent = (req: Request, res: Response, next: NextFunction): void => {
     const result = blockStudentSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -106,7 +106,7 @@ export const validateBlockStudent = (req: Request, res: Response, next: NextFunc
 export const validateInvoice = (req: Request, res: Response, next: NextFunction): void => {
     const result = invoiceSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -115,7 +115,7 @@ export const validateInvoice = (req: Request, res: Response, next: NextFunction)
 export const validateMassInvoice = (req: Request, res: Response, next: NextFunction): void => {
     const result = massInvoiceSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -124,7 +124,7 @@ export const validateMassInvoice = (req: Request, res: Response, next: NextFunct
 export const validateRegistration = (req: Request, res: Response, next: NextFunction): void => {
     const result = registrationSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -133,7 +133,7 @@ export const validateRegistration = (req: Request, res: Response, next: NextFunc
 export const validateRejectRegistration = (req: Request, res: Response, next: NextFunction): void => {
     const result = rejectRegistrationSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -142,7 +142,7 @@ export const validateRejectRegistration = (req: Request, res: Response, next: Ne
 export const validateUpdateStudentStatus = (req: Request, res: Response, next: NextFunction): void => {
     const result = updateStudentStatusSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();
@@ -151,7 +151,7 @@ export const validateUpdateStudentStatus = (req: Request, res: Response, next: N
 export const validateSystemConfig = (req: Request, res: Response, next: NextFunction): void => {
     const result = systemConfigSchema.safeParse(req.body);
     if (!result.success) {
-        res.status(400).json({ status: "error", message: "Validation failed", errors: result.error.flatten().fieldErrors });
+        res.status(400).json({ status: "gagal", message: "Validasi gagal", errors: result.error.flatten().fieldErrors });
         return;
     }
     next();

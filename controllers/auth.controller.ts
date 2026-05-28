@@ -14,7 +14,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         const existingUser = await prisma.user.findUnique({ where: { email } });
         
         if (existingUser) {
-            res.status(400).json({ status: "error", message: "Email already exists" });
+            res.status(400).json({ status: "gagal", message: "Email sudah terdaftar" });
             return;
         }
 
@@ -63,8 +63,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         await kirimEmailPPDB(email, nama_lengkap);
 
         res.status(201).json({ 
-            status: "success", 
-            message: "Registration successful", 
+            status: "sukses", 
+            message: "Pendaftaran berhasil", 
             data: {
                 id: result.user.id,
                 email: result.user.email,
@@ -72,7 +72,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             } 
         });
     } catch (error) {
-        res.status(500).json({ status: "error", message: "Internal server error" });
+        res.status(500).json({ status: "gagal", message: "Terjadi kesalahan pada server" });
     }
 };
 
@@ -85,13 +85,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         });
         
         if (!user) {
-            res.status(401).json({ status: "error", message: "Invalid credentials" });
+            res.status(401).json({ status: "gagal", message: "Kredensial tidak valid" });
             return;
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
         if (!isPasswordValid) {
-            res.status(401).json({ status: "error", message: "Invalid credentials" });
+            res.status(401).json({ status: "gagal", message: "Kredensial tidak valid" });
             return;
         }
 
@@ -102,8 +102,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         );
 
         res.json({ 
-            status: "success", 
-            message: "Login successful", 
+            status: "sukses", 
+            message: "Login berhasil", 
             data: { 
                 token, 
                 user: { 
@@ -115,7 +115,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             } 
         });
     } catch (error) {
-        res.status(500).json({ status: "error", message: "Internal server error" });
+        res.status(500).json({ status: "gagal", message: "Terjadi kesalahan pada server" });
     }
 };
 
@@ -125,20 +125,20 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
         const { oldPassword, newPassword } = req.body;
 
         if (!userId) {
-            res.status(401).json({ status: "error", message: "Unauthorized" });
+            res.status(401).json({ status: "gagal", message: "Tidak diizinkan" });
             return;
         }
 
         const user = await prisma.user.findUnique({ where: { id: userId } });
         
         if (!user) {
-            res.status(404).json({ status: "error", message: "User not found" });
+            res.status(404).json({ status: "gagal", message: "Pengguna tidak ditemukan" });
             return;
         }
 
         const isPasswordValid = await bcrypt.compare(oldPassword, user.password_hash);
         if (!isPasswordValid) {
-            res.status(400).json({ status: "error", message: "Password lama salah" });
+            res.status(400).json({ status: "gagal", message: "Password lama salah" });
             return;
         }
 
@@ -149,8 +149,8 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
             data: { password_hash: hashedPassword }
         });
 
-        res.json({ status: "success", message: "Password berhasil diubah" });
+        res.json({ status: "sukses", message: "Password berhasil diubah" });
     } catch (error) {
-        res.status(500).json({ status: "error", message: "Internal server error" });
+        res.status(500).json({ status: "gagal", message: "Terjadi kesalahan pada server" });
     }
 };

@@ -30,7 +30,7 @@ export const getAllRegistrations = async (req: Request, res: Response): Promise<
         ]);
 
         res.status(200).json({
-            status: "success",
+            status: "sukses",
             data: registrations,
             meta: {
                 current_page: page,
@@ -40,7 +40,7 @@ export const getAllRegistrations = async (req: Request, res: Response): Promise<
             }
         });
     } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+        res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
     }
 };
 
@@ -62,16 +62,16 @@ export const getRegistrationById = async (req: Request, res: Response): Promise<
         });
 
         if (!registration) {
-            res.status(404).json({ status: "error", message: "Registration not found" });
+            res.status(404).json({ status: "gagal", message: "Data pendaftaran tidak ditemukan" });
             return;
         }
 
         res.status(200).json({
-            status: "success",
+            status: "sukses",
             data: registration
         });
     } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+        res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
     }
 };
 
@@ -83,14 +83,14 @@ export const acceptRegistration = async (req: AuthRequest, res: Response): Promi
         const registration = await prisma.registration.findUnique({ where: { id } });
 
         if (!registration) {
-            res.status(404).json({ status: "error", message: "Registration not found" });
+            res.status(404).json({ status: "gagal", message: "Data pendaftaran tidak ditemukan" });
             return;
         }
 
         if (registration.status !== 'PENDING') {
             res.status(400).json({
-                status: "error",
-                message: `Cannot accept registration with status: ${registration.status}`
+                status: "gagal",
+                message: `Tidak dapat menerima pendaftaran dengan status: ${registration.status}`
             });
             return;
         }
@@ -144,25 +144,25 @@ export const acceptRegistration = async (req: AuthRequest, res: Response): Promi
                 aksi: 'accept',
                 entity_type: 'registration',
                 entity_id: id,
-                deskripsi: `Accept registration untuk ${registration.nama_lengkap}`,
+                deskripsi: `Menerima pendaftaran untuk ${registration.nama_lengkap}`,
                 ip_address: req.ipAddress ?? null,
                 user_agent: req.userAgent ?? null
             }
         });
 
         res.status(200).json({
-            status: "success",
-            message: "Registration accepted successfully",
+            status: "sukses",
+            message: "Pendaftaran berhasil diterima",
             data: result.updatedRegistration
         });
     } catch (error: any) {
         if (error.code === 'P2002') {
             res.status(400).json({
-                status: "error",
-                message: "Email or NISN already registered in Master Data"
+                status: "gagal",
+                message: "Email atau NISN sudah terdaftar pada Data Master"
             });
         } else {
-            res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+            res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
         }
     }
 };
@@ -174,21 +174,21 @@ export const rejectRegistration = async (req: AuthRequest, res: Response): Promi
         const admin_id = req.user?.id || 'SYSTEM';
 
         if (!alasan) {
-            res.status(400).json({ status: "error", message: "Rejection reason is required" });
+            res.status(400).json({ status: "gagal", message: "Alasan penolakan wajib diisi" });
             return;
         }
 
         const registration = await prisma.registration.findUnique({ where: { id } });
 
         if (!registration) {
-            res.status(404).json({ status: "error", message: "Registration not found" });
+            res.status(404).json({ status: "gagal", message: "Data pendaftaran tidak ditemukan" });
             return;
         }
 
         if (registration.status !== 'PENDING') {
             res.status(400).json({
-                status: "error",
-                message: `Cannot reject registration with status: ${registration.status}`
+                status: "gagal",
+                message: `Tidak dapat menolak pendaftaran dengan status: ${registration.status}`
             });
             return;
         }
@@ -210,12 +210,12 @@ export const rejectRegistration = async (req: AuthRequest, res: Response): Promi
         });
 
         res.status(200).json({
-            status: "success",
-            message: "Registration rejected and data deleted successfully",
+            status: "sukses",
+            message: "Pendaftaran ditolak dan data berhasil dihapus",
             data: registration
         });
     } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+        res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
     }
 };
 
@@ -238,8 +238,8 @@ export const createRegistration = async (req: Request, res: Response): Promise<v
 
         if (!nama_lengkap || !nisn || !email || !jurusan || !password) {
             res.status(400).json({
-                status: "error",
-                message: "nama_lengkap, nisn, email, password, and jurusan are required"
+                status: "gagal",
+                message: "nama_lengkap, nisn, email, password, dan jurusan wajib diisi"
             });
             return;
         }
@@ -260,8 +260,8 @@ export const createRegistration = async (req: Request, res: Response): Promise<v
                 });
             } else {
                 res.status(400).json({
-                    status: "error",
-                    message: "NISN atau email sudah terdaftar dan sedang diproses/diterima."
+                    status: "gagal",
+                    message: "NISN atau email sudah terdaftar dan sedang diproses atau sudah diterima."
                 });
                 return;
             }
@@ -270,7 +270,7 @@ export const createRegistration = async (req: Request, res: Response): Promise<v
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             res.status(400).json({
-                status: "error",
+                status: "gagal",
                 message: "Email sudah terdaftar sebagai pengguna aktif."
             });
             return;
@@ -299,12 +299,12 @@ export const createRegistration = async (req: Request, res: Response): Promise<v
         await kirimEmailPPDB(email, nama_lengkap, password);
 
         res.status(201).json({
-            status: "success",
-            message: "Registration submitted successfully",
+            status: "sukses",
+            message: "Pendaftaran berhasil diajukan",
             data: registration
         });
     } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+        res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
     }
 };
 
@@ -326,14 +326,14 @@ export const updateRegistration = async (req: Request, res: Response): Promise<v
         const registration = await prisma.registration.findUnique({ where: { id } });
 
         if (!registration) {
-            res.status(404).json({ status: "error", message: "Registration not found" });
+            res.status(404).json({ status: "gagal", message: "Data pendaftaran tidak ditemukan" });
             return;
         }
 
         if (registration.status !== 'PENDING') {
             res.status(400).json({
-                status: "error",
-                message: `Cannot update registration with status: ${registration.status}`
+                status: "gagal",
+                message: `Tidak dapat memperbarui pendaftaran dengan status: ${registration.status}`
             });
             return;
         }
@@ -354,12 +354,12 @@ export const updateRegistration = async (req: Request, res: Response): Promise<v
         });
 
         res.status(200).json({
-            status: "success",
-            message: "Registration updated successfully",
+            status: "sukses",
+            message: "Pendaftaran berhasil diperbarui",
             data: updatedRegistration
         });
     } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+        res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
     }
 };
 
@@ -368,7 +368,7 @@ export const checkRegistrationStatus = async (req: Request, res: Response): Prom
         const { nisn, email } = req.query;
 
         if (!nisn || !email) {
-            res.status(400).json({ status: "error", message: "NISN dan Email wajib diisi" });
+            res.status(400).json({ status: "gagal", message: "NISN dan Email wajib diisi" });
             return;
         }
 
@@ -380,15 +380,15 @@ export const checkRegistrationStatus = async (req: Request, res: Response): Prom
         });
 
         if (!registration) {
-            res.status(404).json({ status: "error", message: "Data pendaftaran tidak ditemukan" });
+            res.status(404).json({ status: "gagal", message: "Data pendaftaran tidak ditemukan" });
             return;
         }
 
         res.status(200).json({
-            status: "success",
+            status: "sukses",
             data: registration
         });
     } catch (error: any) {
-        res.status(500).json({ status: "error", message: error.message || "Internal server error" });
+        res.status(500).json({ status: "gagal", message: error.message || "Terjadi kesalahan pada server" });
     }
 };
