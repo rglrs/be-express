@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
-import { kirimEmailPPDB } from './email.controller';
+import { kirimEmailPPDB, kirimEmailResetPassword } from './email.controller';
 
 export const register = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -152,5 +152,57 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
         res.json({ status: "sukses", message: "Password berhasil diubah" });
     } catch (error) {
         res.status(500).json({ status: "gagal", message: "Terjadi kesalahan pada server" });
+    }
+};
+
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email } = req.body;
+        const user = await prisma.user.findUnique({ where: { email } });
+        
+        if (!user) {
+            res.status(404).json({ status: "gagal", message: "Email tidak terdaftar" });
+            return;
+        }
+
+        const resetToken = jwt.sign(
+            { id: user.id },
+            process.env.JWT_SECRET || 'secret',
+            { expiresIn: '15m' }
+        );
+
+        await kirimEmailResetPassword(email, resetToken);
+
+        res.json({ status: "sukses", message: "Link pemulihan telah dikirim ke email" });
+    } catch (error) {
+        res.status(500).json({ status: "gagal", message: "Terjadi kesalahan pada server" });
+    }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            res.status(400).json({ status: "gagal", message: "Token dan password baru wajib diisi" });
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            res.status(400).json({ status: "gagal", message: "Password minimal 8 karakter" });
+            return;
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string };
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await prisma.user.update({
+            where: { id: decoded.id },
+            data: { password_hash: hashedPassword }
+        });
+
+        res.json({ status: "sukses", message: "Password berhasil diubah" });
+    } catch (error) {
+        res.status(400).json({ status: "gagal", message: "Token tidak valid atau sudah kedaluwarsa" });
     }
 };

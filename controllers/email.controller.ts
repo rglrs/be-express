@@ -72,7 +72,7 @@ export const kirimEmailPPDB = async (emailOrReq: Request | string, namaOrRes?: R
                         <p style="margin: 10px 0 0 0;">Jika akun Anda sudah disetujui, Anda dapat masuk ke dalam portal siswa menggunakan kredensial berikut:</p>
                         <div style="margin-top: 15px; padding: 15px; background-color: #f1f5f9; border-radius: 8px;">
                             <p style="margin: 0; color: #475569; font-size: 14px;">Email: <b style="color: #0f172a;">${email}</b></p>
-                            <p style="margin: 5px 0 0 0; color: #475569; font-size: 14px;">Password: <b style="color: #0f172a;">${password}</b></p>
+                            <p style="margin: 5px 0 0 0; color: #475569; font-size: 14px;">Sandi: <b style="color: #0f172a;">${password}</b></p>
                         </div>
                     </div>
                     <hr style="border: 1px solid #e2e8f0;"/>
@@ -280,5 +280,33 @@ export const kirimEmailPembayaranSukses = async (transactionId: string): Promise
         });
     } catch (error) {
         console.error("Gagal mengirim email pembayaran sukses", error);
+    }
+};
+
+export const kirimEmailResetPassword = async (email: string, token: string): Promise<void> => {
+    try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+        
+        const mailOptions = {
+            from: '"Keamanan SORA" <noreply@sora.com>',
+            to: email,
+            subject: 'Pemulihan Akun SORA',
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc; border-radius: 10px;">
+                    <h2 style="color: #1e3a8a;">Pemulihan Sandi</h2>
+                    <p>Kami menerima permintaan untuk mengatur ulang sandi pada akun SORA Anda.</p>
+                    <p>Silakan klik tombol di bawah ini untuk mengubah sandi Anda:</p>
+                    <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">Ubah Sandi</a>
+                    <p style="color: #ef4444; font-size: 14px;">Tautan ini hanya berlaku selama 15 menit.</p>
+                    <p>Jika Anda tidak meminta perubahan sandi, abaikan email ini dan akun Anda akan tetap aman.</p>
+                    <hr style="border: 1px solid #e2e8f0; margin-top: 30px;"/>
+                    <p style="color: #64748b; font-size: 12px;">Tim Keamanan - SORA Digitalization</p>
+                </div>
+            `
+        };
+        await transporter.sendMail(mailOptions);
+    } catch (error) {
+        console.error("Gagal mengirim email reset sandi", error);
     }
 };
