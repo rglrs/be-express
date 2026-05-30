@@ -4,7 +4,7 @@ import { snap } from '../utils/midtrans';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { Prisma } from '../generated/prisma/client';
-import { kirimEmailTagihanBaru, kirimEmailPembayaranSukses } from './email.controller';
+import { kirimEmailTagihanBaru, kirimEmailPembayaranSukses, kirimEmailTagihanDiedit, kirimEmailTagihanDihapus } from './email.controller';
 
 export const payInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -168,7 +168,7 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
             }
         });
 
-        kirimEmailTagihanBaru(invoice.id).catch(console.error);
+        kirimEmailTagihanBaru(invoice.id).catch(() => {});
 
         res.status(201).json({ status: "success", data: invoice });
     } catch (error) {
@@ -206,7 +206,7 @@ export const createMassInvoice = async (req: AuthRequest, res: Response): Promis
         );
 
         invoicesCreated.forEach(inv => {
-            kirimEmailTagihanBaru(inv.id).catch(console.error);
+            kirimEmailTagihanBaru(inv.id).catch(() => {});
         });
 
         res.status(201).json({ status: "success", message: `Berhasil membuat ${invoicesCreated.length} tagihan` });
@@ -244,7 +244,7 @@ export const midtransCallback = async (req: Request, res: Response): Promise<voi
                     data: { status: 'SUCCESS' }
                 });
 
-                kirimEmailPembayaranSukses(updatedTx.id).catch(console.error);
+                kirimEmailPembayaranSukses(updatedTx.id).catch(() => {});
             }
         }
 
@@ -363,6 +363,8 @@ export const updateInvoice = async (req: AuthRequest, res: Response): Promise<vo
             }
         });
 
+        kirimEmailTagihanDiedit(updatedInvoice.id).catch(() => {});
+
         res.status(200).json({
             status: "success",
             message: "Invoice updated successfully",
@@ -393,6 +395,8 @@ export const deleteInvoice = async (req: AuthRequest, res: Response): Promise<vo
         }
 
         await prisma.invoice.delete({ where: { id } });
+
+        kirimEmailTagihanDihapus(invoice.student_id, invoice.judul_tagihan, invoice.nominal).catch(() => {});
 
         res.status(200).json({
             status: "success",
@@ -536,7 +540,7 @@ export const verifyManualTransaction = async (req: AuthRequest, res: Response): 
                 return updatedTx;
             });
             
-            kirimEmailPembayaranSukses(result.id).catch(console.error);
+            kirimEmailPembayaranSukses(result.id).catch(() => {});
 
             res.json({ status: "success", message: "Pembayaran diverifikasi." });
         } else {
@@ -590,7 +594,7 @@ export const adminPayInvoice = async (req: AuthRequest, res: Response): Promise<
             return transaction;
         });
 
-        kirimEmailPembayaranSukses(result.id).catch(console.error);
+        kirimEmailPembayaranSukses(result.id).catch(() => {});
 
         res.status(200).json({
             status: "success",

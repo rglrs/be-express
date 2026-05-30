@@ -162,9 +162,7 @@ export const kirimEmailTagihanBaru = async (invoiceId: string): Promise<void> =>
                 status: 'SENT'
             }
         });
-    } catch (error) {
-        console.error("Gagal mengirim email tagihan baru", error);
-    }
+    } catch (error) {}
 };
 
 export const kirimEmailTunggakan = async (invoiceId: string): Promise<void> => {
@@ -226,9 +224,7 @@ export const kirimEmailTunggakan = async (invoiceId: string): Promise<void> => {
                 status: 'SENT'
             }
         });
-    } catch (error) {
-        console.error("Gagal mengirim email peringatan tunggakan", error);
-    }
+    } catch (error) {}
 };
 
 export const kirimEmailPembayaranSukses = async (transactionId: string): Promise<void> => {
@@ -278,9 +274,7 @@ export const kirimEmailPembayaranSukses = async (transactionId: string): Promise
                 status: 'SENT'
             }
         });
-    } catch (error) {
-        console.error("Gagal mengirim email pembayaran sukses", error);
-    }
+    } catch (error) {}
 };
 
 export const kirimEmailResetPassword = async (email: string, token: string): Promise<void> => {
@@ -306,7 +300,100 @@ export const kirimEmailResetPassword = async (email: string, token: string): Pro
             `
         };
         await transporter.sendMail(mailOptions);
-    } catch (error) {
-        console.error("Gagal mengirim email reset sandi", error);
-    }
+    } catch (error) {}
+};
+
+export const kirimEmailTagihanDiedit = async (invoiceId: string): Promise<void> => {
+    try {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { student: { include: { user: true } } }
+        });
+
+        if (!invoice) return;
+
+        const targetEmail = getTargetEmail(invoice.student);
+        if (!targetEmail) return;
+
+        const mailOptions = {
+            from: '"SORA Keuangan" <noreply@sora.com>',
+            to: targetEmail,
+            subject: `Perubahan Tagihan: ${invoice.judul_tagihan}`,
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc;">
+                    <h2 style="color: #d97706;">Pemberitahuan Perubahan Tagihan</h2>
+                    <p>Yth. ${invoice.student.nama_lengkap},</p>
+                    <p>Terdapat perubahan pada rincian tagihan Anda. Berikut adalah informasi tagihan terbaru:</p>
+                    <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <p><strong>Judul Tagihan:</strong> ${invoice.judul_tagihan}</p>
+                        <p><strong>Kategori:</strong> ${invoice.jenis_tagihan}</p>
+                        <p><strong>Nominal:</strong> Rp ${invoice.nominal.toLocaleString('id-ID')}</p>
+                        <p><strong>Jatuh Tempo:</strong> ${invoice.tanggal_jatuh_tempo ? new Date(invoice.tanggal_jatuh_tempo).toLocaleDateString('id-ID') : '-'}</p>
+                    </div>
+                    <p style="margin-top: 20px;">Silakan cek portal siswa untuk informasi lebih lanjut.</p>
+                    <hr style="border: 1px solid #e2e8f0; margin-top: 30px;"/>
+                    <p style="color: #64748b; font-size: 12px;">Keuangan - SORA Digitalization</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        
+        await prisma.emailLog.create({
+            data: {
+                student_id: invoice.student_id,
+                invoice_id: invoice.id,
+                jenis: 'TAGIHAN_DIEDIT',
+                to_email: targetEmail,
+                subject: mailOptions.subject,
+                status: 'SENT'
+            }
+        });
+    } catch (error) {}
+};
+
+export const kirimEmailTagihanDihapus = async (studentId: string, judulTagihan: string, nominal: number): Promise<void> => {
+    try {
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            include: { user: true }
+        });
+
+        if (!student) return;
+
+        const targetEmail = getTargetEmail(student);
+        if (!targetEmail) return;
+
+        const mailOptions = {
+            from: '"SORA Keuangan" <noreply@sora.com>',
+            to: targetEmail,
+            subject: `Pembatalan Tagihan: ${judulTagihan}`,
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; background-color: #f8fafc;">
+                    <h2 style="color: #dc2626;">Pemberitahuan Pembatalan Tagihan</h2>
+                    <p>Yth. ${student.nama_lengkap},</p>
+                    <p>Tagihan berikut telah dibatalkan atau dihapus dari sistem kami:</p>
+                    <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <p><strong>Judul Tagihan:</strong> ${judulTagihan}</p>
+                        <p><strong>Nominal:</strong> Rp ${nominal.toLocaleString('id-ID')}</p>
+                    </div>
+                    <p style="margin-top: 20px;">Anda tidak perlu lagi melakukan pembayaran untuk tagihan ini.</p>
+                    <hr style="border: 1px solid #e2e8f0; margin-top: 30px;"/>
+                    <p style="color: #64748b; font-size: 12px;">Keuangan - SORA Digitalization</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        
+        await prisma.emailLog.create({
+            data: {
+                student_id: studentId,
+                jenis: 'TAGIHAN_DIHAPUS',
+                to_email: targetEmail,
+                subject: mailOptions.subject,
+                status: 'SENT'
+            }
+        });
+    } catch (error) {}
 };
