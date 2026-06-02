@@ -95,15 +95,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        const config = await prisma.systemConfig.findFirst();
-        if (config?.is_maintenance && user.role === 'STUDENT') {
-            res.status(403).json({ 
-                status: "maintenance", 
-                message: "Sistem sedang dalam masa perbaikan (Maintenance). Akses login siswa ditutup sementara." 
-            });
-            return;
-        }
-
         const token = jwt.sign(
             { id: user.id, role: user.role },
             process.env.JWT_SECRET || 'secret',
@@ -123,11 +114,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 } 
             } 
         });
-    } catch (error) {
-        res.status(500).json({ status: "gagal", message: "Terjadi kesalahan pada server" });
+    } catch (error: any) {
+        console.error("LOGIN ERROR:", error);
+        res.status(500).json({ 
+            status: "gagal", 
+            message: "Terjadi kesalahan pada server",
+            debug_error: error.message 
+        });
     }
 };
-
 export const changePassword = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = (req as any).user?.id;
