@@ -10,19 +10,14 @@ import systemConfigRoutes from './routes/system-config.routes';
 import auditRoutes from './routes/audit.routes';
 import informasiRoutes from './routes/informasi.route';
 import masterRoutes from './routes/master.routes';
-import { checkMaintenance } from './middlewares/maintenance.middleware';
-import { checkFileSize } from './middlewares/upload.middleware';
-import { initCronJobs } from './cron/invoice.cron';
 
 dotenv.config();
 
 const app = express();
 
 app.use(cors());
-app.use(checkFileSize);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(checkMaintenance);
 
 app.get('/', (req, res) => {
     res.send("Backend Server is Running!");
@@ -37,8 +32,6 @@ app.use('/api/system-config', systemConfigRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/informasi', informasiRoutes);
 app.use('/api/master', masterRoutes);
-
-initCronJobs();
 
 if (process.env.NODE_ENV !== 'production') {
     const port = process.env.PORT || 3000;
