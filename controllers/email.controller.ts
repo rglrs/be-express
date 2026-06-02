@@ -19,6 +19,12 @@ const getTargetEmail = (student: any): string => {
 
 export const kirimTagihanOrtu = async (req: Request, res: Response): Promise<void> => {     
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) {
+            res.status(200).json({ status: "success", message: "Notifikasi email dinonaktifkan oleh sistem" });
+            return;
+        }
+
         const { emailOrtu, namaSiswa, nominal, bulan } = req.body;
         
         const mailOptions = {
@@ -45,6 +51,14 @@ export const kirimTagihanOrtu = async (req: Request, res: Response): Promise<voi
 
 export const kirimEmailPPDB = async (emailOrReq: Request | string, namaOrRes?: Response | string, pwd?: string): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) {
+            if (namaOrRes && typeof namaOrRes === 'object' && 'status' in namaOrRes) {
+                (namaOrRes as Response).status(200).json({ status: "success", message: "Notifikasi email dinonaktifkan oleh sistem" });
+            }
+            return;
+        }
+
         let email: string;
         let nama: string;
         let password = pwd || '';
@@ -95,6 +109,9 @@ export const kirimEmailPPDB = async (emailOrReq: Request | string, namaOrRes?: R
 
 export const kirimEmailTagihanBaru = async (invoiceId: string): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) return;
+
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
             include: { student: { include: { user: true } } }
@@ -167,6 +184,9 @@ export const kirimEmailTagihanBaru = async (invoiceId: string): Promise<void> =>
 
 export const kirimEmailTunggakan = async (invoiceId: string): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) return;
+
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
             include: { student: { include: { user: true } } }
@@ -229,6 +249,9 @@ export const kirimEmailTunggakan = async (invoiceId: string): Promise<void> => {
 
 export const kirimEmailPembayaranSukses = async (transactionId: string): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) return;
+
         const transaction = await prisma.transaction.findUnique({
             where: { id: transactionId },
             include: { invoice: { include: { student: { include: { user: true } } } } }
@@ -279,6 +302,9 @@ export const kirimEmailPembayaranSukses = async (transactionId: string): Promise
 
 export const kirimEmailResetPassword = async (email: string, token: string): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) return;
+
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetLink = `${frontendUrl}/reset-password?token=${token}`;
         
@@ -305,6 +331,9 @@ export const kirimEmailResetPassword = async (email: string, token: string): Pro
 
 export const kirimEmailTagihanDiedit = async (invoiceId: string): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) return;
+
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
             include: { student: { include: { user: true } } }
@@ -354,6 +383,9 @@ export const kirimEmailTagihanDiedit = async (invoiceId: string): Promise<void> 
 
 export const kirimEmailTagihanDihapus = async (studentId: string, judulTagihan: string, nominal: number): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_notifikasi_email === false) return;
+
         const student = await prisma.student.findUnique({
             where: { id: studentId },
             include: { user: true }

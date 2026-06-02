@@ -216,6 +216,11 @@ model LaporanKeuangan {
 
 model SystemConfig {
   id                           String   @id @default(uuid())
+  nama_sekolah                 String?
+  email_kontak                 String?
+  telepon_kontak               String?
+  alamat                       String?  @db.Text
+  is_maintenance               Boolean  @default(false)
   batas_hari_jatuh_tempo       Int      @default(30)
   batas_hari_tunggakan         Int      @default(90)
   persentase_denda_per_hari    Float    @default(0.5)
@@ -225,7 +230,6 @@ model SystemConfig {
   max_upload_file_size_mb      Int      @default(10)
   updated_at                   DateTime @updatedAt
   updated_by                   String?
-
   @@map("system_configs")
 }
 

@@ -8,6 +8,12 @@ import { kirimEmailTagihanBaru, kirimEmailPembayaranSukses, kirimEmailTagihanDie
 
 export const payInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_payment_gateway === false) {
+            res.status(400).json({ status: "error", message: "Payment gateway sedang dinonaktifkan oleh administrator" });
+            return;
+        }
+
         const id = req.params.id as string;
         const userId = req.user?.id;
 
@@ -69,6 +75,12 @@ export const payInvoice = async (req: AuthRequest, res: Response): Promise<void>
 
 export const payPaket = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+        const config = await prisma.systemConfig.findFirst();
+        if (config && config.aktifkan_payment_gateway === false) {
+            res.status(400).json({ status: "error", message: "Payment gateway sedang dinonaktifkan oleh administrator" });
+            return;
+        }
+
         const { jumlahBulan } = req.body;
         const userId = req.user?.id;
 
@@ -155,6 +167,15 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
     try {
         const { student_id, judul_tagihan, jenis_tagihan, bulan, nominal, tahun, tanggal_jatuh_tempo } = req.body;
 
+        const config = await prisma.systemConfig.findFirst();
+        let finalJatuhTempo = tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null;
+        
+        if (!finalJatuhTempo && config && config.batas_hari_jatuh_tempo) {
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() + config.batas_hari_jatuh_tempo);
+            finalJatuhTempo = defaultDate;
+        }
+
         const invoice = await prisma.invoice.create({
             data: {
                 student_id,
@@ -164,7 +185,7 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
                 nominal: parseInt(nominal),
                 tahun: parseInt(tahun) || new Date().getFullYear(),
                 status: 'PENDING',
-                tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
+                tanggal_jatuh_tempo: finalJatuhTempo
             }
         });
 
@@ -179,6 +200,15 @@ export const createInvoice = async (req: AuthRequest, res: Response): Promise<vo
 export const createMassInvoice = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { targetKelas, judul_tagihan, jenis_tagihan, bulan, nominal, tahun, tanggal_jatuh_tempo } = req.body;
+
+        const config = await prisma.systemConfig.findFirst();
+        let finalJatuhTempo = tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null;
+
+        if (!finalJatuhTempo && config && config.batas_hari_jatuh_tempo) {
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() + config.batas_hari_jatuh_tempo);
+            finalJatuhTempo = defaultDate;
+        }
 
         const whereClause = targetKelas === 'Semua' ? {} : { kelas: { startsWith: targetKelas as string } };
         const students = await prisma.student.findMany({ where: whereClause });
@@ -199,7 +229,7 @@ export const createMassInvoice = async (req: AuthRequest, res: Response): Promis
                         nominal: parseInt(nominal),
                         tahun: parseInt(tahun) || new Date().getFullYear(),
                         status: 'PENDING',
-                        tanggal_jatuh_tempo: tanggal_jatuh_tempo ? new Date(tanggal_jatuh_tempo) : null
+                        tanggal_jatuh_tempo: finalJatuhTempo
                     }
                 })
             )

@@ -95,6 +95,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        const config = await prisma.systemConfig.findFirst();
+        if (config?.is_maintenance && user.role === 'STUDENT') {
+            res.status(403).json({ 
+                status: "maintenance", 
+                message: "Sistem sedang dalam masa perbaikan (Maintenance). Akses login siswa ditutup sementara." 
+            });
+            return;
+        }
+
         const token = jwt.sign(
             { id: user.id, role: user.role },
             process.env.JWT_SECRET || 'secret',

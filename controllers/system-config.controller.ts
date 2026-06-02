@@ -9,6 +9,11 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
         if (!config) {
             config = await prisma.systemConfig.create({
                 data: {
+                    nama_sekolah: '',
+                    email_kontak: '',
+                    telepon_kontak: '',
+                    alamat: '',
+                    is_maintenance: false,
                     batas_hari_jatuh_tempo: 30,
                     batas_hari_tunggakan: 90,
                     persentase_denda_per_hari: 0.5,
@@ -33,6 +38,11 @@ export const updateConfig = async (req: AuthRequest, res: Response): Promise<voi
     try {
         const admin_id = req.user?.id as string;
         const {
+            nama_sekolah,
+            email_kontak,
+            telepon_kontak,
+            alamat,
+            is_maintenance,
             batas_hari_jatuh_tempo,
             batas_hari_tunggakan,
             persentase_denda_per_hari,
@@ -49,6 +59,11 @@ export const updateConfig = async (req: AuthRequest, res: Response): Promise<voi
         if (!config) {
             config = await prisma.systemConfig.create({
                 data: {
+                    nama_sekolah: nama_sekolah ?? '',
+                    email_kontak: email_kontak ?? '',
+                    telepon_kontak: telepon_kontak ?? '',
+                    alamat: alamat ?? '',
+                    is_maintenance: is_maintenance ?? false,
                     batas_hari_jatuh_tempo: batas_hari_jatuh_tempo ?? 30,
                     batas_hari_tunggakan: batas_hari_tunggakan ?? 90,
                     persentase_denda_per_hari: persentase_denda_per_hari ?? 0.5,
@@ -63,6 +78,11 @@ export const updateConfig = async (req: AuthRequest, res: Response): Promise<voi
             config = await prisma.systemConfig.update({
                 where: { id: config.id },
                 data: {
+                    nama_sekolah: nama_sekolah ?? config.nama_sekolah,
+                    email_kontak: email_kontak ?? config.email_kontak,
+                    telepon_kontak: telepon_kontak ?? config.telepon_kontak,
+                    alamat: alamat ?? config.alamat,
+                    is_maintenance: is_maintenance ?? config.is_maintenance,
                     batas_hari_jatuh_tempo: batas_hari_jatuh_tempo ?? config.batas_hari_jatuh_tempo,
                     batas_hari_tunggakan: batas_hari_tunggakan ?? config.batas_hari_tunggakan,
                     persentase_denda_per_hari: persentase_denda_per_hari ?? config.persentase_denda_per_hari,
