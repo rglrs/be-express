@@ -119,30 +119,20 @@ export const unblockStudent = async (req: AuthRequest, res: Response): Promise<v
 
 export const getDashboardStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const [
-            totalStudents,
-            totalInvoices,
-            paidInvoices,
-            overdueInvoices,
-            totalRevenue,
-            blockedStudents,
-            registrationsPending,
-            registrationsAccepted,
-            registrationsRejected
-        ] = await Promise.all([
-            prisma.student.count(),
-            prisma.invoice.count(),
-            prisma.invoice.count({ where: { status: 'PAID' } }),
-            prisma.invoice.count({ where: { status: 'OVERDUE' } }),
-            prisma.invoice.aggregate({
-                where: { status: 'PAID' },
-                _sum: { nominal: true }
-            }),
-            prisma.student.count({ where: { blokir_ujian: true } }),
-            prisma.registration.count({ where: { status: 'PENDING' } }),
-            prisma.registration.count({ where: { status: 'ACCEPTED' } }),
-            prisma.registration.count({ where: { status: 'REJECTED' } })
-        ]);
+        const totalStudents = await prisma.student.count();
+        const totalInvoices = await prisma.invoice.count();
+        const paidInvoices = await prisma.invoice.count({ where: { status: 'PAID' } });
+        const overdueInvoices = await prisma.invoice.count({ where: { status: 'OVERDUE' } });
+        
+        const totalRevenue = await prisma.invoice.aggregate({
+            where: { status: 'PAID' },
+            _sum: { nominal: true }
+        });
+        
+        const blockedStudents = await prisma.student.count({ where: { blokir_ujian: true } });
+        const registrationsPending = await prisma.registration.count({ where: { status: 'PENDING' } });
+        const registrationsAccepted = await prisma.registration.count({ where: { status: 'ACCEPTED' } });
+        const registrationsRejected = await prisma.registration.count({ where: { status: 'REJECTED' } });
 
         const totalTagihan = await prisma.invoice.aggregate({
             _sum: { nominal: true }
@@ -184,9 +174,9 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
                     total: totalInvoices,
                     paid: paidInvoices,
                     overdue: overdueInvoices,
-                    total_nominal: totalTagihan._sum.nominal || 0,
-                    total_paid: totalRevenue._sum.nominal || 0,
-                    total_unpaid: tunggakan._sum.nominal || 0,
+                    total_nominal: totalTagihan._sum?.nominal || 0,
+                    total_paid: totalRevenue._sum?.nominal || 0,
+                    total_unpaid: tunggakan._sum?.nominal || 0,
                     monthly_revenue
                 },
                 registrations: {
