@@ -154,7 +154,8 @@ export const getAllInvoices = async (req: AuthRequest, res: Response): Promise<v
 
         const invoices = await prisma.invoice.findMany({
             where,
-            include: { student: true, transactions: true }
+            include: { student: true, transactions: true },
+            orderBy: { createdAt: 'desc' }
         });
 
         res.json({ status: "success", data: invoices });
@@ -589,6 +590,7 @@ export const adminPayInvoice = async (req: AuthRequest, res: Response): Promise<
     try {
         const id = req.params.id as string;
         const adminId = req.user?.id;
+        const { metode_bayar } = req.body;
 
         const invoice = await prisma.invoice.findUnique({
             where: { id }
@@ -613,7 +615,7 @@ export const adminPayInvoice = async (req: AuthRequest, res: Response): Promise<
             const transaction = await tx.transaction.create({
                 data: {
                     invoice_id: id,
-                    metode_bayar: 'BEASISWA_INTERNAL',
+                    metode_bayar: metode_bayar || 'CASH',
                     jumlah_bayar: invoice.nominal,
                     status: 'SUCCESS',
                     verified_at: new Date(),
@@ -628,7 +630,7 @@ export const adminPayInvoice = async (req: AuthRequest, res: Response): Promise<
 
         res.status(200).json({
             status: "success",
-            message: "Invoice berhasil dilunasi oleh Admin (Beasiswa Internal)",
+            message: "Invoice berhasil dilunasi oleh Admin",
             data: result
         });
     } catch (error) {
